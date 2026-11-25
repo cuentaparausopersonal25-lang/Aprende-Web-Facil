@@ -100,6 +100,75 @@ DETAILS = {
 ("Deploy y logs","Revisá el estado Live y probá la URL. Si aparece un error 500, abrí Logs y buscá la última excepción completa. Verificá rutas, dependencias y base de datos.","# Revisar dependencias\npip freeze\n\n# Inicio local\nflask --app app run --debug")
 ],
 }
+DETAILS.update({
+"responsive":[
+("Viewport y medidas flexibles","La etiqueta viewport permite que el navegador use el ancho real del dispositivo. Para diseños adaptables combiná porcentajes, max-width, rem y unidades relativas.","<meta name='viewport' content='width=device-width, initial-scale=1'>\n.container { width: min(100% - 2rem, 1100px); margin: auto; }"),
+("Media queries","Una media query aplica reglas cuando se cumple una condición, por ejemplo cuando la pantalla es más angosta que cierto ancho.","@media (max-width: 700px) {\n  .menu { flex-direction: column; }\n}"),
+("Mobile-first","Diseñá primero la versión pequeña y agregá mejoras para pantallas grandes. Así priorizás contenido y evitás esconder información importante.",".grid { display: grid; grid-template-columns: 1fr; }\n@media (min-width: 800px) {\n .grid { grid-template-columns: repeat(3, 1fr); }\n}"),
+("Probar en dispositivos","Revisá navegación, botones, formularios y textos en diferentes anchos. Evitá anchos fijos que generen scroll horizontal.","img { max-width: 100%; height: auto; }\nbutton, a { min-height: 44px; }")
+],
+"bootstrap":[
+("Instalación y contenedores","Bootstrap ofrece estilos y componentes listos. Podés incorporarlo con su CDN o instalarlo en un proyecto. container limita y centra el contenido.","<div class='container'>\n  <h1>Mi sitio</h1>\n</div>"),
+("Sistema de grillas","La grilla se organiza en filas y columnas responsivas. Las clases col-md-6 ocupan la mitad del ancho desde el breakpoint md.","<div class='row'>\n <div class='col-md-6'>Columna A</div>\n <div class='col-md-6'>Columna B</div>\n</div>"),
+("Componentes","Botones, tarjetas, alertas y navegación aceleran la construcción. Leé la documentación para conocer opciones y atributos requeridos.","<div class='card'>\n <div class='card-body'>\n  <h2 class='card-title'>Tarjeta</h2>\n </div>\n</div>"),
+("Personalización","Podés combinar clases utilitarias y CSS propio. Evitá agregar reglas globales que rompan componentes existentes.","<button class='btn btn-primary'>Enviar</button>\n<style>.btn-primary { border-radius: 20px; }</style>")
+],
+"react":[
+("Componentes","React permite construir interfaces a partir de piezas reutilizables. Un componente suele ser una función que devuelve JSX.","function Saludo() {\n return <h1>Hola, React</h1>;\n}"),
+("JSX y props","JSX combina JavaScript con una sintaxis parecida a HTML. Las props permiten pasar información de un componente padre a uno hijo.","function Tarjeta({ titulo }) {\n return <article><h2>{titulo}</h2></article>;\n}"),
+("Estado y eventos","useState guarda información que puede cambiar y provoca una nueva renderización cuando se actualiza.","const [contador, setContador] = useState(0);\n<button onClick={() => setContador(contador + 1)}>\n {contador}\n</button>"),
+("Listas y proyecto","map permite transformar una lista de datos en elementos. Cada elemento necesita una key estable para que React pueda identificarlo.","const tareas = ['Leer', 'Practicar'];\nreturn tareas.map(t => <li key={t}>{t}</li>);")
+],
+"apis":[
+("HTTP y endpoints","Una API permite que dos programas intercambien información. Un endpoint es una dirección que ofrece un recurso. HTTP define métodos y códigos de respuesta.","GET /api/productos\nPOST /api/productos\n200 OK · 404 Not Found"),
+("JSON y métodos","JSON es un formato de texto para intercambiar datos. Los métodos GET consultan, POST crea, PUT/PATCH modifica y DELETE elimina.","const alumno = {\n  \"nombre\": \"Alex\",\n  \"activo\": true\n};"),
+("fetch y async/await","fetch realiza solicitudes desde el navegador. async/await facilita esperar la respuesta. Comprobá response.ok antes de leer los datos.","async function cargar() {\n const r = await fetch('/api/datos');\n if (!r.ok) throw new Error('Error');\n return await r.json();\n}"),
+("Errores y seguridad","Manej á errores de red, validá respuestas y no expongas claves privadas en JavaScript del navegador. Los secretos deben permanecer en el servidor.","try {\n const datos = await cargar();\n console.log(datos);\n} catch (error) {\n console.error(error);\n}")
+],
+"seguridad":[
+("Contraseñas y hashing","Nunca guardes contraseñas en texto plano. Guardá un hash generado con una función específica para contraseñas, como scrypt, bcrypt o Argon2.","from werkzeug.security import generate_password_hash\nhash_seguro = generate_password_hash('una-clave-larga')"),
+("Sesiones y cookies","Las sesiones mantienen el estado de inicio de sesión. Usá cookies HttpOnly, Secure bajo HTTPS y SameSite adecuado. Protegé las operaciones sensibles.","app.config.update(\n SESSION_COOKIE_HTTPONLY=True,\n SESSION_COOKIE_SECURE=True,\n SESSION_COOKIE_SAMESITE='Lax'\n)"),
+("Validación de datos","Validá los datos en el servidor aunque también exista validación en el navegador. Limitá longitudes, tipos y valores permitidos.","nombre = request.form.get('nombre', '').strip()\nif not nombre or len(nombre) > 60:\n    abort(400)"),
+("Secretos y buenas prácticas","No subas claves, tokens ni contraseñas a GitHub. Usá variables de entorno, dependencias actualizadas y permisos mínimos.","import os\nAPI_KEY = os.environ.get('API_KEY')\nif not API_KEY:\n    raise RuntimeError('Falta API_KEY')")
+],
+"php":[
+("Sintaxis y variables","PHP se ejecuta en el servidor y genera respuestas, a menudo HTML. Las variables comienzan con signo dólar y las instrucciones suelen terminar en punto y coma.","<?php\n$nombre = 'Mica';\necho 'Hola ' . $nombre;\n?>"),
+("Condiciones y funciones","if permite tomar decisiones. Las funciones reúnen instrucciones reutilizables y pueden recibir parámetros.","function sumar($a, $b) {\n  return $a + $b;\n}\necho sumar(3, 4);"),
+("Formularios y validación","Los datos enviados pueden leerse desde $_POST. Validá y limpiá la información en el servidor antes de usarla o mostrarla.","$correo = filter_input(INPUT_POST, 'correo', FILTER_VALIDATE_EMAIL);\nif (!$correo) {\n  echo 'Correo inválido';\n}"),
+("Bases de datos","PDO permite conectarse a bases de datos y ejecutar consultas preparadas. Los parámetros ayudan a evitar inyección SQL.","$stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');\n$stmt->execute([$id]);\n$user = $stmt->fetch();")
+],
+"nodejs":[
+("Node y npm","Node.js ejecuta JavaScript fuera del navegador. npm administra paquetes y scripts del proyecto.","node --version\nnpm init -y\nnpm install"),
+("Módulos y archivos","Los módulos separan responsabilidades. Node admite módulos CommonJS y ES Modules; elegí uno y mantené la configuración consistente.","// archivo saludar.js\nexport function saludar(nombre) {\n return 'Hola ' + nombre;\n}"),
+("Servidor HTTP","El módulo http permite crear un servidor básico que escucha solicitudes y devuelve respuestas.","import { createServer } from 'node:http';\ncreateServer((req, res) => {\n res.end('Hola desde Node');\n}).listen(3000);"),
+("Rutas y APIs","Un servidor puede responder distinto según URL y método. En aplicaciones mayores se suelen usar frameworks y validación de entrada.","if (req.url === '/api/saludo') {\n res.setHeader('Content-Type', 'application/json');\n res.end(JSON.stringify({ mensaje: 'Hola' }));\n}")
+],
+"typescript":[
+("Tipos básicos","TypeScript agrega un sistema de tipos estático a JavaScript. Los tipos ayudan a detectar errores antes de ejecutar el programa.","let nombre: string = 'Luz';\nlet edad: number = 16;\nlet activo: boolean = true;"),
+("Interfaces y objetos","Las interfaces describen la forma de un objeto. Permiten documentar propiedades y reutilizar contratos de datos.","interface Alumno {\n nombre: string;\n edad: number;\n}\nconst persona: Alumno = { nombre: 'Luz', edad: 16 };"),
+("Funciones tipadas","Podés indicar tipos de parámetros y del valor devuelto. Esto hace más claro qué espera una función.","function sumar(a: number, b: number): number {\n return a + b;\n}"),
+("Uniones y proyecto","Los tipos unión permiten aceptar más de una alternativa. TypeScript se compila a JavaScript para ejecutarse en el navegador o Node.","type Estado = 'pendiente' | 'hecho';\nlet tarea: Estado = 'pendiente';")
+],
+"ux-ui":[
+("UX y UI","UX es la experiencia completa al usar un producto. UI es la interfaz visual y sus controles. Ambas disciplinas trabajan juntas.","Objetivo: que una persona encuentre una acción importante sin tener que adivinar dónde está."),
+("Usuarios y objetivos","Antes de diseñar, identificá quién usará el sitio, qué necesita lograr y qué obstáculos puede encontrar. Priorizá tareas reales.","Persona: estudiante principiante.\nObjetivo: encontrar su primera clase.\nNecesidad: instrucciones claras y visibles."),
+("Jerarquía visual","Tamaño, contraste, espacio y posición guían la atención. Usá una acción principal clara y mantené consistencia entre pantallas.","h1 { font-size: 2.5rem; }\n.primary-action { background: #58e0b3; }\n.secondary-action { border: 1px solid #456; }"),
+("Accesibilidad y prototipos","Diseñá para distintos dispositivos y capacidades. Revisá contraste, foco de teclado, etiquetas de formularios y textos alternativos.","<label for='mail'>Correo</label>\n<input id='mail' type='email'>\n<button>Enviar formulario</button>")
+],
+"ia-programacion":[
+("Qué puede y qué no puede hacer la IA","Un asistente puede explicar conceptos, proponer ejemplos y ayudar a investigar errores, pero puede equivocarse o inventar APIs. Verificá cada respuesta.","Pedile: 'Explicá qué hace este bloque y señalá qué debería probar antes de usarlo'."),
+("Prompts útiles","Un buen pedido incluye contexto, objetivo, código relevante, error exacto y restricciones. Pedí explicaciones y no solo una solución final.","Contexto: aplicación Flask.\nObjetivo: validar un formulario.\nError: copiar el traceback completo.\nPedido: explicar y proponer una corrección."),
+("Revisar código generado","Leé el código, probalo con casos normales y extremos, revisá dependencias y comprobá que no exponga datos ni introduzca vulnerabilidades.","# Lista de revisión\n# 1. ¿Entiendo el código?\n# 2. ¿Probé entradas inválidas?\n# 3. ¿Protegí secretos?"),
+("Privacidad y uso responsable","No pegues contraseñas, datos personales, claves privadas ni archivos confidenciales en herramientas públicas. Conservá la responsabilidad sobre el resultado.","Antes de compartir un fragmento, reemplazá tokens, claves y datos privados por valores ficticios.")
+],
+"proyecto-final":[
+("Definir alcance y diseño","Elegí un problema pequeño y definí usuarios, pantallas y funciones indispensables. Escribí qué queda fuera del proyecto para evitar crecer sin control.","Proyecto: gestor de tareas.\nFunciones: crear, completar y borrar.\nPantallas: inicio, acceso y panel."),
+("Construir frontend","Prepará estructura semántica y estilos adaptables. Separá los componentes y probá la navegación con teclado y pantalla pequeña.","<main>\n <h1>Mis tareas</h1>\n <form><label for='task'>Nueva tarea</label><input id='task'></form>\n</main>"),
+("Crear backend y datos","Definí rutas y validaciones del servidor. Diseñá tablas con claves y consultas parametrizadas. Guardá contraseñas como hashes.","CREATE TABLE tasks (\n id INTEGER PRIMARY KEY,\n title TEXT NOT NULL,\n done INTEGER DEFAULT 0\n);"),
+("Probar, publicar y documentar","Probá formularios, permisos, errores y diseño móvil. Publicá desde GitHub y revisá logs. Documentá instalación, configuración y uso.","Checklist final:\n- README actualizado\n- secretos en variables de entorno\n- pruebas manuales\n- URL publicada\n- capturas del proyecto")
+]
+})
+
 DEFAULT_DETAILS = [
 ("Comprender el concepto","Empezá identificando qué problema resuelve esta tecnología, dónde se utiliza y qué conceptos necesitás conocer antes de avanzar. No memorices definiciones aisladas: relacioná cada idea con un ejemplo real.","Pensá en una aplicación pequeña y anotá qué datos recibe, qué proceso realiza y qué resultado muestra."),
 ("Leer un ejemplo","Observá la estructura del código, los nombres de variables y la función de cada instrucción. Cambiá un valor por vez para comprobar cómo cambia el resultado.","# Ejemplo para experimentar\nmensaje = 'Estoy aprendiendo'\nprint(mensaje)"),
