@@ -233,6 +233,10 @@ def init_db():
           answer TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS site_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
         """)
 
 def csrf_token():
@@ -429,6 +433,11 @@ def projects():
 @app.route("/retos", methods=["GET", "POST"])
 def challenges():
     challenge = {"title":"Tu tarjeta de presentación","description":"Creá una tarjeta HTML con tu nombre, una breve presentación y un enlace. Aplicale al menos tres reglas CSS.","hint":"Usá una etiqueta h1, un párrafo, un enlace y una clase CSS para la tarjeta."}
+    with get_db() as conn:
+        saved = conn.execute("SELECT key, value FROM site_settings WHERE key IN ('challenge_title','challenge_description','challenge_hint')").fetchall()
+    for row in saved:
+        field = {"challenge_title":"title","challenge_description":"description","challenge_hint":"hint"}[row["key"]]
+        challenge[field] = row["value"]
     if request.method == "POST":
         nickname = request.form.get("nickname", "").strip()
         answer = request.form.get("answer", "").strip()
@@ -492,8 +501,29 @@ def admin():
         users = conn.execute("SELECT id, username, created_at FROM users ORDER BY id DESC LIMIT 50").fetchall()
         submissions = conn.execute("SELECT nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 30").fetchall()
         progress_count = conn.execute("SELECT COUNT(*) FROM progress").fetchone()[0]
+        saved = conn.execute("SELECT key, value FROM site_settings WHERE key IN ('challenge_title','challenge_description','challenge_hint')").fetchall()
+    challenge = {"title":"Tu tarjeta de presentación","description":"Creá una tarjeta HTML con tu nombre, una breve presentación y un enlace. Aplicale al menos tres reglas CSS.","hint":"Usá una etiqueta h1, un párrafo, un enlace y una clase CSS para la tarjeta."}
+    for row in saved:
+        field = {"challenge_title":"title","challenge_description":"description","challenge_hint":"hint"}[row["key"]]
+        challenge[field] = row["value"]
     return render_template("admin.html", comments=comments, users=users, submissions=submissions,
-                           courses=COURSES, progress_count=progress_count)
+                           courses=COURSES, progress_count=progress_count, challenge=challenge)
+
+
+@app.post("/admin/reto")
+@admin_required
+def update_challenge():
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    hint = request.form.get("hint", "").strip()
+    if not title or len(title) > 100 or not description or len(description) > 500 or not hint or len(hint) > 300:
+        flash("Completá el título, la descripción y la pista respetando los límites indicados.", "error")
+    else:
+        with get_db() as conn:
+            conn.executemany("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                             [("challenge_title", title), ("challenge_description", description), ("challenge_hint", hint)])
+        flash("¡El desafío semanal se actualizó!", "success")
+    return redirect(url_for("admin"))
 
 @app.post("/admin/comentario/<int:comment_id>/eliminar")
 @admin_required
