@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block title %}Error {{ code }} · Aprende Web Fácil{% endblock %}{% block content %}<section class="auth-wrap"><div class="auth-card center"><div class="eyebrow">ERROR {{ code }}</div><h1>No pudimos procesar eso.</h1><p>{{ message }}</p><a class="btn primary full" href="{{ url_for('home') }}">Volver al inicio</a></div></section>{% endblock %}
