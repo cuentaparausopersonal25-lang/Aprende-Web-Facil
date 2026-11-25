@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Aprendé a programar desde cero | Aprende Web Fácil{% endblock %}
+{% block content %}
+<section class="learn-hero"><div class="container"><a class="back-link" href="{{ url_for('home') }}">← Volver al inicio</a><span class="eyebrow">TU PRIMERA CLASE</span><h1>Aprendé a <span>programar desde cero.</span></h1><p>No hace falta que sepas nada todavía. Vamos a entender qué es programar, cómo se escribe código y cómo se construyen las páginas web, con ejemplos sencillos.</p><a class="btn btn-primary" href="#primeros-conceptos">Empezar la lección ↓</a></div></section>
+<section class="lesson-section" id="primeros-conceptos"><div class="container learn-content">
+<div class="lesson-welcome"><span>🧭</span><div><b>Antes de escribir código, entendamos la idea</b><p>Programar es darle instrucciones claras a una computadora para que realice una tarea.</p></div></div>
+<section class="learn-topic"><span class="learn-number">01</span><div><h2>¿Qué significa programar?</h2><p>Cuando programás, dividís un problema en pasos y escribís instrucciones que la computadora puede ejecutar. Por ejemplo, una aplicación del clima recibe una ciudad, busca información y muestra la temperatura.</p><div class="learn-callout"><b>Ejemplo cotidiano:</b> para preparar un mate seguís pasos: calentar agua, colocar yerba, acomodarla y cebar. Un algoritmo funciona de manera parecida: tiene pasos ordenados y un objetivo.</div></div></section>
+<section class="learn-topic"><span class="learn-number">02</span><div><h2>¿Qué es el código?</h2><p>El código es el conjunto de instrucciones escritas en un lenguaje que una computadora puede interpretar o ejecutar. Cada lenguaje tiene reglas propias, como la gramática de un idioma.</p><pre class="code-block"><code>print("¡Hola, mundo!")</code></pre><p>Este ejemplo está escrito en Python. La instrucción print() muestra en pantalla el texto que está entre comillas.</p></div></section>
+<section class="learn-topic"><span class="learn-number">03</span><div><h2>Los lenguajes para crear páginas web</h2><div class="learn-language-grid"><article><b>HTML</b><p>Organiza el contenido: títulos, párrafos, imágenes y enlaces.</p><pre class="code-block"><code>&lt;h1&gt;Mi primera web&lt;/h1&gt;</code></pre></article><article><b>CSS</b><p>Define la apariencia: colores, tamaños, espacios y distribución.</p><pre class="code-block"><code>h1 { color: blue; }</code></pre></article><article><b>JavaScript</b><p>Agrega acciones: responder a clics, validar formularios y actualizar contenido.</p><pre class="code-block"><code>alert("¡Hola!");</code></pre></article><article><b>Python</b><p>Permite crear programas y servidores web, por ejemplo con Flask.</p><pre class="code-block"><code>nombre = "Ana"
+print(nombre)</code></pre></article></div></div></section>
+<section class="learn-topic"><span class="learn-number">04</span><div><h2>Cómo se construye una página</h2><p>HTML define qué elementos existen, CSS define cómo se ven y JavaScript define cómo reaccionan. En proyectos con Flask, Python puede preparar la información y enviarla a las plantillas HTML.</p><pre class="code-block"><code>mi-proyecto/
+├── app.py
+├── templates/
+│   └── index.html
+└── static/
+    ├── css/
+    │   └── style.css
+    └── js/
+        └── main.js</code></pre><p>Separar responsabilidades hace que el código sea más fácil de mantener.</p></div></section>
+<section class="learn-topic"><span class="learn-number">05</span><div><h2>Tu primera práctica</h2><p>Escribí este archivo en un editor de texto. Guardalo como <b>hola.html</b> y abrilo con tu navegador.</p><pre class="code-block"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="es"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Mi primera página&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;¡Estoy aprendiendo!&lt;/h1&gt;
+  &lt;p&gt;Este es mi primer paso programando.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre><div class="learn-callout"><b>Desafío:</b> cambiá el título, escribí un párrafo y agregá un subtítulo con la etiqueta h2.</div></div></section>
+<section class="learn-next"><div><span class="eyebrow">¿LISTO PARA SEGUIR?</span><h2>Ahora sí: elegí tu primer curso.</h2><p>Avanzá paso a paso. Cada curso tiene explicaciones, ejemplos de código y ejercicios para practicar.</p></div><div class="learn-next-links">{% for course in courses %}<a href="{{ url_for('course', slug=course.slug) }}"><span>{{ course.icon }}</span><b>{{ course.title }}</b><small>Ver clases →</small></a>{% endfor %}</div></section>
+</div></section>
+{% endblock %}
