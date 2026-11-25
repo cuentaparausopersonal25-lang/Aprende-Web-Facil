@@ -10,9 +10,11 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
 - Experiencia (XP), insignias y ranking.
 - Certificado de finalización imprimible al completar un curso.
 - Laboratorio de HTML, CSS y JavaScript con vista previa aislada.
-- Retos, proyectos y herramientas de práctica.
+- Retos semanales editables desde el panel administrador.
+- 10 herramientas de práctica para desarrollo web.
+- Proyectos guiados y comunidad con comentarios.
 - Comunidad con comentarios.
-- Panel de administración para moderar comentarios y revisar estudiantes y entregas.
+- Panel de administración para publicar el reto semanal, moderar comentarios y revisar estudiantes y entregas.
 
 ## Ejecutar localmente
 1. Instalá Python 3.11 o superior.
