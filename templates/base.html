@@ -6,23 +6,15 @@
   <meta name="description" content="Aprendé a crear, programar y publicar tus propias páginas web desde cero.">
   <title>{% block title %}Aprende Web Fácil{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/academy.css') }}">
 </head>
 <body>
-<header class="site-header">
-  <div class="container nav-wrap">
-    <a class="brand" href="{{ url_for('home') }}"><span class="brand-mark">A</span><span>Aprende Web <b>Fácil</b></span></a>
-    <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
-    <nav id="mainNav">
-      <a href="{{ url_for('learn_programming') }}">Aprender a programar</a>
-      <a href="{{ url_for('home') }}#cursos">Cursos</a>
-      <a href="{{ url_for('home') }}#preguntas">Preguntas frecuentes</a>
-      <a href="{{ url_for('home') }}#errores">Errores típicos</a>
-      <a class="nav-cta" href="{{ url_for('home') }}#comunidad">Comunidad</a>
-    </nav>
-  </div>
-</header>
-<main>{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="container flashes">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}{% block content %}{% endblock %}</main>
+<header class="site-header"><div class="container nav-wrap">
+<a class="brand" href="{{ url_for('home') }}"><span class="brand-mark">A</span><span>Aprende Web <b>Fácil</b></span></a>
+<button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+<nav id="mainNav"><a href="{{ url_for('learn_programming') }}">Aprender a programar</a><a href="{{ url_for('home') }}#cursos">Cursos</a><a href="{{ url_for('home') }}#preguntas">Preguntas frecuentes</a><a href="{{ url_for('home') }}#errores">Errores típicos</a><a class="nav-cta" href="{{ url_for('home') }}#comunidad">Comunidad</a></nav>
+</div></header>
+<main>{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="container flashes">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>
 <footer class="footer"><div class="container footer-inner"><a class="brand footer-brand" href="{{ url_for('home') }}"><span class="brand-mark">A</span><span>Aprende Web <b>Fácil</b></span></a><p>Aprender a crear también es animarse a empezar.</p><span>© 2026 Aprende Web Fácil</span></div></footer>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+</body></html>
