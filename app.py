@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import secrets
 import hmac
+from contextlib import contextmanager
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -111,6 +112,7 @@ for c in COURSES:
     for i, (title, explanation, code) in enumerate(details, 1):
         c["lessons"].append({"number": i, "title": title, "explanation": explanation, "code": code})
 
+@contextmanager
 def get_db():
     path = Path(DATABASE)
     if str(path.parent) not in ("", "."):
@@ -118,7 +120,14 @@ def get_db():
     conn = sqlite3.connect(DATABASE, timeout=20)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def init_db():
     with get_db() as conn:
@@ -306,7 +315,7 @@ def dashboard():
     if completed_count >= 10: badges.append("Constancia")
     if challenges >= 1: badges.append("Primer desafío")
     return render_template("dashboard.html", user=user, progress=progress, completed_count=completed_count,
-                           total_lessons=total_lessons, xp=xp, badges=badges, challenges=challenges)
+                           total_lessons=total_lessons, xp=xp, badges=badges, challenges=challenges, courses=COURSES)
 
 @app.route("/certificado/<slug>")
 @login_required
