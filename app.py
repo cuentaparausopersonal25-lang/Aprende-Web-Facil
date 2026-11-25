@@ -1,275 +1,194 @@
 import os
 import sqlite3
+from datetime import datetime, timezone
 from functools import wraps
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
+import secrets
+import hmac
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "cambia-esta-clave-secreta-antes-de-publicar")
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+)
 DATABASE = os.environ.get("DATABASE_PATH", "aprende_web.db")
 
 COURSES = [
-    {"slug":"primeros-pasos","title":"Primeros pasos en la web","level":"Principiante","duration":"30 min","description":"Entendé cómo funciona una página web y qué herramientas necesitás.","icon":"🌐"},
-    {"slug":"html","title":"HTML desde cero","level":"Principiante","duration":"2 horas","description":"Aprendé a construir la estructura y el contenido de una página.","icon":"🧱"},
-    {"slug":"css","title":"CSS desde cero","level":"Principiante","duration":"2 horas","description":"Dale estilo, colores, espacios y diseño adaptable a tu sitio.","icon":"🎨"},
-    {"slug":"javascript","title":"JavaScript básico","level":"Inicial","duration":"2 horas","description":"Agregá interacción y comportamiento a tus páginas web.","icon":"⚡"},
-    {"slug":"pagina-completa","title":"Tu primera página completa","level":"Inicial","duration":"1 hora","description":"Uní HTML, CSS y JavaScript en un pequeño proyecto.","icon":"🛠️"},
-    {"slug":"github","title":"GitHub y tus proyectos","level":"Inicial","duration":"1 hora","description":"Guardá tu código y aprendé a subir proyectos a GitHub.","icon":"🐙"},
-    {"slug":"render","title":"Publicar con Render","level":"Inicial","duration":"1 hora","description":"Publicá tu proyecto para que otras personas puedan visitarlo.","icon":"🚀"},
+    {"slug":"primeros-pasos","title":"Programación desde cero","level":"Principiante","duration":"2 horas","description":"Lógica, algoritmos, computadoras y primeros pasos para pensar como programador.","icon":"🧭","category":"Fundamentos","topics":["Qué significa programar","Algoritmos y pseudocódigo","Variables y tipos de datos","Condiciones y decisiones"]},
+    {"slug":"html","title":"HTML completo","level":"Principiante","duration":"4 horas","description":"Construí la estructura de sitios con etiquetas, formularios, tablas y HTML semántico.","icon":"🧱","category":"Frontend","topics":["Documento y etiquetas HTML","Texto, enlaces e imágenes","Listas, tablas y formularios","HTML semántico y accesibilidad"]},
+    {"slug":"css","title":"CSS profesional","level":"Principiante","duration":"5 horas","description":"Diseñá sitios modernos con selectores, Flexbox, Grid, responsive y animaciones.","icon":"🎨","category":"Frontend","topics":["Selectores y cascada","Modelo de caja y tipografía","Flexbox y CSS Grid","Responsive y animaciones"]},
+    {"slug":"javascript","title":"JavaScript desde cero","level":"Inicial","duration":"6 horas","description":"Aprendé variables, funciones, condiciones, DOM, eventos y almacenamiento.","icon":"⚡","category":"Frontend","topics":["Variables y tipos de datos","Condiciones y bucles","Funciones y arrays","DOM, eventos y localStorage"]},
+    {"slug":"pagina-completa","title":"Crear una web completa","level":"Inicial","duration":"4 horas","description":"Uní HTML, CSS y JavaScript para construir un sitio responsive de principio a fin.","icon":"🛠️","category":"Proyectos","topics":["Planificación y estructura","Componentes y estilos","Interactividad y formularios","Pruebas y publicación"]},
+    {"slug":"python","title":"Python desde cero","level":"Principiante","duration":"6 horas","description":"Dominá la sintaxis, variables, listas, diccionarios, funciones y módulos.","icon":"🐍","category":"Backend","topics":["Instalación y sintaxis","Variables, operadores y tipos","Condiciones, bucles y colecciones","Funciones, módulos y archivos"]},
+    {"slug":"flask","title":"Flask y backend web","level":"Inicial","duration":"5 horas","description":"Creá servidores, rutas, plantillas, formularios, sesiones y aplicaciones Flask.","icon":"🌶️","category":"Backend","topics":["Servidor y rutas","Plantillas Jinja","Formularios y sesiones","Estructura y despliegue"]},
+    {"slug":"bases-datos","title":"Bases de datos y SQL","level":"Inicial","duration":"5 horas","description":"Guardá información con tablas, consultas SQL, relaciones y SQLite.","icon":"🗄️","category":"Backend","topics":["Tablas y registros","SELECT, WHERE y ORDER BY","INSERT, UPDATE y DELETE","Relaciones y SQLite con Python"]},
+    {"slug":"github","title":"Git y GitHub","level":"Inicial","duration":"2 horas","description":"Controlá versiones, guardá cambios, usá ramas y compartí tus proyectos.","icon":"🐙","category":"Herramientas","topics":["Git y repositorios","Commit y seguimiento","Ramas y colaboración","GitHub desde el navegador"]},
+    {"slug":"render","title":"Publicar con Render","level":"Inicial","duration":"2 horas","description":"Prepará Flask, conectá GitHub, configurá Render y revisá los logs.","icon":"🚀","category":"Herramientas","topics":["Preparar la aplicación","Conectar GitHub","Variables y comandos","Deploy, logs y mantenimiento"]},
+    {"slug":"responsive","title":"Diseño adaptable","level":"Inicial","duration":"3 horas","description":"Hacé que tu web se vea bien en celulares, tablets y computadoras.","icon":"📱","category":"Frontend","topics":["Viewport y medidas flexibles","Media queries","Diseño mobile-first","Pruebas en distintos tamaños"]},
+    {"slug":"bootstrap","title":"Bootstrap","level":"Inicial","duration":"3 horas","description":"Construí interfaces rápidas con grillas, componentes y utilidades Bootstrap.","icon":"🅱️","category":"Frontend","topics":["Instalación y contenedores","Sistema de grillas","Componentes y formularios","Personalización y responsive"]},
+    {"slug":"react","title":"React inicial","level":"Intermedio","duration":"5 horas","description":"Comprendé componentes, props, estado, eventos y listas en React.","icon":"⚛️","category":"Frontend","topics":["Qué es React y componentes","JSX y props","Estado y eventos","Listas y proyecto pequeño"]},
+    {"slug":"apis","title":"APIs y JSON","level":"Intermedio","duration":"4 horas","description":"Conectá aplicaciones con servicios externos y aprendé a consumir APIs.","icon":"🔌","category":"Backend","topics":["HTTP y endpoints","JSON y métodos","fetch y async/await","Errores y seguridad básica"]},
+    {"slug":"seguridad","title":"Seguridad web básica","level":"Intermedio","duration":"4 horas","description":"Protegé formularios, sesiones, contraseñas y datos de tus usuarios.","icon":"🛡️","category":"Profesional","topics":["Contraseñas y hashing","Sesiones y cookies","Validación de datos","Secretos y buenas prácticas"]},
+    {"slug":"php","title":"PHP desde cero","level":"Inicial","duration":"4 horas","description":"Conocé la sintaxis PHP, formularios, funciones y conexión a datos.","icon":"🐘","category":"Backend","topics":["Sintaxis y variables","Condiciones y funciones","Formularios y validación","Conexión a bases de datos"]},
+    {"slug":"nodejs","title":"Node.js inicial","level":"Intermedio","duration":"4 horas","description":"Ejecutá JavaScript del lado del servidor y creá un servidor sencillo.","icon":"🟩","category":"Backend","topics":["Node y npm","Módulos y archivos","Servidor HTTP","Rutas y APIs sencillas"]},
+    {"slug":"typescript","title":"TypeScript","level":"Intermedio","duration":"4 horas","description":"Agregá tipos a JavaScript para organizar proyectos más robustos.","icon":"🔷","category":"Frontend","topics":["Tipos básicos","Interfaces y objetos","Funciones tipadas","Uniones y proyecto"]},
+    {"slug":"ux-ui","title":"Diseño UX/UI","level":"Inicial","duration":"3 horas","description":"Planificá experiencias claras con jerarquía visual, accesibilidad y prototipos.","icon":"🧩","category":"Diseño","topics":["UX y UI","Usuarios y objetivos","Jerarquía visual","Accesibilidad y prototipos"]},
+    {"slug":"ia-programacion","title":"Inteligencia artificial para programar","level":"Intermedio","duration":"3 horas","description":"Usá asistentes de IA para aprender, revisar código y construir con criterio.","icon":"🤖","category":"Profesional","topics":["Qué puede y qué no puede hacer la IA","Prompts útiles para programar","Revisar y probar código generado","Privacidad y uso responsable"]},
+    {"slug":"proyecto-final","title":"Proyecto final: tu aplicación","level":"Avanzado","duration":"8 horas","description":"Planificá, desarrollá, probá y publicá una aplicación web completa.","icon":"🏆","category":"Proyectos","topics":["Definir alcance y diseño","Construir frontend","Crear backend y datos","Probar, publicar y documentar"]},
 ]
 
-LESSONS = {
-"primeros-pasos": {
- "intro":"Una página web es un conjunto de archivos que el navegador interpreta para mostrar información, imágenes, botones y otras funciones.",
- "sections":[
-  ("¿Qué necesitamos?", "Para comenzar alcanza con una computadora, un navegador como Chrome y un editor de código. También vamos a usar Python y Flask cuando creemos páginas dinámicas."),
-  ("¿Cómo llega una página a tu pantalla?", "El navegador solicita los archivos a un servidor. El servidor los envía y el navegador interpreta HTML, CSS y JavaScript para mostrar el resultado."),
-  ("Los tres lenguajes principales", "HTML organiza el contenido; CSS controla su apariencia; JavaScript permite responder a acciones de las personas.")
- ],
- "code":'mi-proyecto/\\n├── app.py\\n├── templates/\\n│   └── index.html\\n└── static/\\n    └── css/\\n        └── style.css',
- "exercise":"Creá una carpeta llamada mi-primer-sitio. Dentro, imaginá qué archivos usarías para separar el contenido y el diseño.",
- "result":"Separar los archivos ayuda a mantener el proyecto ordenado y facilita encontrar errores."
-},
-"html": {
- "intro":"HTML significa HyperText Markup Language. Es el lenguaje de marcado que define la estructura de una página: títulos, párrafos, enlaces, imágenes y listas.",
- "sections":[
-  ("La estructura básica", "Un documento HTML comienza con DOCTYPE. Luego se abre html, se define la información de la pestaña dentro de head y el contenido visible dentro de body."),
-  ("Etiquetas y elementos", "Las etiquetas indican qué tipo de contenido estamos escribiendo. Por ejemplo, h1 representa el título principal y p representa un párrafo."),
-  ("Atributos", "Los atributos agregan información a una etiqueta. En un enlace, href indica a qué dirección debe llevarnos.")
- ],
- "code":'<!DOCTYPE html>\\n<html lang="es">\\n<head>\\n  <meta charset="UTF-8">\\n  <title>Mi primera página</title>\\n</head>\\n<body>\\n  <h1>¡Hola, mundo!</h1>\\n  <p>Estoy aprendiendo HTML.</p>\\n  <a href="https://www.google.com">Visitar Google</a>\\n</body>\\n</html>',
- "exercise":"Agregá un segundo párrafo que cuente qué te gustaría crear y un subtítulo usando h2.",
- "result":"Al abrir el archivo en el navegador verás un título grande, un párrafo y un enlace. HTML define qué aparece, no su decoración."
-},
-"css": {
- "intro":"CSS significa Cascading Style Sheets. Se utiliza para controlar la apariencia: colores, tamaños, tipografías, márgenes y distribución.",
- "sections":[
-  ("Conectar CSS", "Podés escribir estilos en un archivo separado y conectarlo desde el head con una etiqueta link. Así el diseño no queda mezclado con el contenido."),
-  ("Selectores", "Un selector indica qué elementos queremos modificar. h1 selecciona todos los títulos h1; .destacado selecciona los elementos que tienen class=\"destacado\"."),
-  ("Diseño adaptable", "Con media queries podemos cambiar el diseño según el ancho de pantalla. Esto permite que una página se vea bien en celulares y computadoras.")
- ],
- "code":'/* style.css */\\nbody {\\n  font-family: Arial, sans-serif;\\n  background: #f3f8ff;\\n  color: #14243b;\\n}\\n\\nh1 { color: #1769aa; }\\n\\n.destacado {\\n  padding: 16px;\\n  border-radius: 12px;\\n  background: white;\\n}',
- "exercise":"Creá una clase llamada tarjeta y aplicale un fondo blanco, espacio interior y bordes redondeados.",
- "result":"La clase se puede reutilizar en varios elementos. CSS permite cambiar el aspecto sin modificar el contenido HTML."
-},
-"javascript": {
- "intro":"JavaScript es un lenguaje de programación que permite que una página reaccione a lo que hace la persona: clics, formularios, cambios y cálculos.",
- "sections":[
-  ("Una primera instrucción", "Podemos mostrar un mensaje en la consola del navegador usando console.log. La consola sirve para probar y revisar el comportamiento del código."),
-  ("Variables", "Una variable guarda un dato que podemos utilizar más adelante. Usamos const cuando no vamos a reasignar el valor y let cuando sí puede cambiar."),
-  ("Eventos", "Un evento ocurre cuando alguien realiza una acción, por ejemplo, presionar un botón. Podemos escuchar ese evento y ejecutar una función.")
- ],
- "code":'const boton = document.querySelector("#saludar");\\n\\nboton.addEventListener("click", () => {\\n  alert("¡Hola! Ya estás usando JavaScript.");\\n});',
- "exercise":"Creá un botón en HTML con id=\"saludar\" y probá el código JavaScript de la clase.",
- "result":"Al hacer clic en el botón aparecerá una ventana con un saludo. JavaScript agrega interacción a una página."
-},
-"pagina-completa": {
- "intro":"Ahora vamos a combinar HTML y CSS para construir una página sencilla con encabezado, presentación y una tarjeta de contenido.",
- "sections":[
-  ("Planificá el contenido", "Antes de programar, decidí qué querés comunicar. Una página clara suele tener un título, una explicación breve y una acción principal."),
-  ("Construí la estructura", "Usá header para el encabezado, main para el contenido principal y section para separar partes relacionadas."),
-  ("Aplicá el diseño", "Con CSS podés definir el ancho máximo, centrar el contenido y crear tarjetas. Probá el resultado en una ventana angosta para revisar el diseño móvil.")
- ],
- "code":'<!DOCTYPE html>\\n<html lang="es">\\n<head>\\n  <meta charset="UTF-8">\\n  <meta name="viewport" content="width=device-width, initial-scale=1">\\n  <title>Mi proyecto</title>\\n  <link rel="stylesheet" href="style.css">\\n</head>\\n<body>\\n  <header><h1>Mi proyecto web</h1></header>\\n  <main><section><h2>Bienvenido</h2><p>Esta es mi primera página.</p></section></main>\\n</body>\\n</html>',
- "exercise":"Personalizá el título y el texto. Después agregá una tarjeta con una segunda sección.",
- "result":"Vas a tener una página con estructura semántica y una hoja de estilos independiente."
-},
-"github": {
- "intro":"GitHub es una plataforma para guardar proyectos usando Git. Permite tener copias del código, registrar cambios y compartir el trabajo.",
- "sections":[
-  ("Repositorio", "Un repositorio es el espacio donde se guardan los archivos de un proyecto. Puede ser público o privado."),
-  ("Subir archivos", "Desde GitHub podés crear un repositorio y usar Add file para crear o subir archivos. También podés trabajar desde tu computadora con Git."),
-  ("Buenas prácticas", "Mantené nombres claros, organizá las carpetas y agregá un README que explique qué hace tu proyecto.")
- ],
- "code":'Estructura de ejemplo:\\nmi-pagina/\\n├── app.py\\n├── requirements.txt\\n├── Procfile\\n├── templates/\\n│   └── index.html\\n└── static/\\n    └── css/\\n        └── style.css',
- "exercise":"Creá un repositorio llamado mi-primera-web y prepará un README con el objetivo del proyecto.",
- "result":"Tu proyecto quedará guardado en GitHub y podrás conectarlo con servicios de publicación como Render."
-},
-"render": {
- "intro":"Render permite publicar aplicaciones web para que otras personas puedan acceder desde Internet. Puede conectarse a un repositorio de GitHub y desplegar los cambios.",
- "sections":[
-  ("Preparar el proyecto", "En una aplicación Flask necesitás app.py y un archivo requirements.txt con las dependencias. También conviene incluir un Procfile con el comando de inicio."),
-  ("Crear el servicio", "En Render elegí crear un Web Service y conectá el repositorio de GitHub. Seleccioná Python como entorno y configurá el comando de inicio."),
-  ("Revisar el despliegue", "Cuando Render termina de construir la aplicación, muestra una dirección pública. Si falla, revisá los registros (logs): suelen indicar qué archivo o dependencia causó el problema.")
- ],
- "code":'requirements.txt:\\nFlask\\ngunicorn\\n\\nProcfile:\\nweb: gunicorn app:app',
- "exercise":"Revisá que tu proyecto tenga app.py, requirements.txt y Procfile antes de conectarlo con Render.",
- "result":"Al finalizar el despliegue tendrás una URL pública. Compartila para que otras personas puedan visitar tu página."
+DETAILS = {
+"primeros-pasos":[
+("Pensar como programador","Programar es transformar un problema en instrucciones claras. Antes de escribir código, definí qué información recibís, qué resultado querés y qué pasos conectan ambos.","Un algoritmo para preparar una merienda puede ser: elegir ingredientes, preparar utensilios, mezclar y servir. En programación los pasos deben ser precisos y ordenados."),
+("Algoritmos y pseudocódigo","Un algoritmo es una secuencia finita de pasos. El pseudocódigo permite describir la solución con palabras estructuradas antes de elegir un lenguaje.","INICIO\n  leer nombre\n  mostrar 'Hola ' + nombre\nFIN"),
+("Variables y tipos","Una variable es un nombre asociado a un valor. Los tipos habituales son texto, número y booleano. Elegí nombres que expliquen qué guardan.","nombre = 'Luna'\nedad = 15\nestudia = True\nprint(nombre, edad, estudia)"),
+("Decisiones y repetición","Las condiciones permiten elegir caminos. Los bucles repiten instrucciones mientras se cumpla una regla. Son herramientas centrales para automatizar tareas.","edad = 18\nif edad >= 18:\n    print('Mayor de edad')\nelse:\n    print('Menor de edad')")
+],
+"html":[
+("Estructura del documento","HTML describe el contenido. El navegador interpreta etiquetas anidadas. Un documento comienza con doctype, contiene metadatos en head y contenido visible en body.","<!doctype html>\n<html lang='es'>\n<head><meta charset='utf-8'><title>Mi web</title></head>\n<body><h1>Hola</h1></body>\n</html>"),
+("Texto, enlaces e imágenes","Usá encabezados para organizar temas, párrafos para desarrollar ideas, enlaces para navegar e imágenes con texto alternativo para describir su contenido.","<h1>Mi proyecto</h1>\n<p>Estoy aprendiendo HTML.</p>\n<a href='/contacto'>Contacto</a>\n<img src='foto.jpg' alt='Paisaje de montaña'>"),
+("Listas, tablas y formularios","Las listas agrupan elementos; las tablas presentan datos relacionados y los formularios reciben información. Cada campo debe tener una etiqueta comprensible.","<label for='email'>Correo</label>\n<input id='email' name='email' type='email' required>\n<button type='submit'>Enviar</button>"),
+("Semántica y accesibilidad","Elegí etiquetas por su significado. header, nav, main, section, article y footer ayudan a lectores, navegadores y tecnologías de asistencia.","<header><h1>Mi sitio</h1></header>\n<main><article><h2>Una noticia</h2><p>Contenido...</p></article></main>\n<footer>© Mi web</footer>")
+],
+"css":[
+("Selectores y cascada","CSS aplica reglas a elementos HTML. Un selector identifica qué elementos modificar. La cascada resuelve conflictos según origen, especificidad y orden.","h1 { color: #70d6ff; }\n.destacado { font-weight: 700; }\n#principal { max-width: 900px; }"),
+("Modelo de caja","Cada elemento tiene contenido, padding, borde y margen. Usar box-sizing:border-box hace más predecible el cálculo del ancho.","* { box-sizing: border-box; }\n.card { padding: 20px; border: 1px solid #333; margin: 12px; }"),
+("Flexbox y Grid","Flexbox distribuye elementos en una dimensión. Grid organiza filas y columnas. Elegí la herramienta según la estructura que necesites.",".fila { display: flex; gap: 1rem; align-items: center; }\n.grilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }"),
+("Responsive y animaciones","Las media queries permiten adaptar estilos al ancho disponible. Priorizá contenido legible, controles cómodos y movimiento moderado.","@media (max-width: 700px) {\n  .grilla { grid-template-columns: 1fr; }\n}\nbutton { transition: transform .2s; }")
+],
+"javascript":[
+("Variables y datos","Usá const para referencias que no reasignás y let cuando el valor cambiará. JavaScript distingue texto, números, booleanos, arrays, objetos y null.","const nombre = 'Sofi';\nlet puntos = 10;\npuntos += 5;\nconsole.log(nombre, puntos);"),
+("Condiciones y bucles","if/else permite elegir caminos. for recorre una cantidad conocida de veces; for...of es útil para recorrer listas.","const notas = [8, 9, 10];\nfor (const nota of notas) {\n  if (nota >= 7) console.log('Aprobado');\n}"),
+("Funciones y arrays","Una función agrupa una tarea reutilizable. Los parámetros reciben datos y return devuelve un resultado. Los arrays guardan colecciones ordenadas.","function sumar(a, b) {\n  return a + b;\n}\nconst total = sumar(4, 6);"),
+("DOM y eventos","El DOM representa el documento. querySelector encuentra elementos y addEventListener permite reaccionar a clics, envíos y otras acciones.","const boton = document.querySelector('#saludar');\nboton.addEventListener('click', () => {\n  document.querySelector('#salida').textContent = '¡Hola!';\n});")
+],
+"python":[
+("Instalar y ejecutar","Python es un lenguaje de propósito general. Un archivo suele terminar en .py y se ejecuta con python archivo.py. Los espacios al inicio de línea definen bloques.","print('Hola, mundo')\n# Comentario: explica una decisión\nprint('Estoy aprendiendo Python')"),
+("Variables y tipos","Los nombres de variables deben ser descriptivos. int representa enteros, float decimales, str texto y bool verdadero/falso. input recibe texto del usuario.","nombre = input('¿Cómo te llamás? ')\nedad = int(input('Edad: '))\nprint(f'Hola {nombre}, tenés {edad}')"),
+("Condiciones y colecciones","if/elif/else permite decidir. Las listas guardan elementos ordenados y los diccionarios asocian claves con valores.","usuario = {'nombre': 'Ana', 'activo': True}\nif usuario['activo']:\n    print(usuario['nombre'])"),
+("Funciones y archivos","Las funciones evitan repetir código. Los módulos agrupan funciones y with permite abrir archivos cerrándolos de forma segura.","def cuadrado(numero):\n    return numero * numero\n\nwith open('nota.txt', 'w', encoding='utf-8') as archivo:\n    archivo.write(str(cuadrado(5)))")
+],
+"flask":[
+("Servidor y rutas","Flask crea aplicaciones web en Python. Una ruta conecta una URL con una función que devuelve una respuesta.","from flask import Flask\napp = Flask(__name__)\n\n@app.route('/')\ndef inicio():\n    return 'Hola desde Flask'"),
+("Plantillas Jinja","render_template busca archivos HTML dentro de templates. Jinja permite mostrar variables, recorrer listas y crear condiciones.","from flask import render_template\n\n@app.route('/saludo/<nombre>')\ndef saludo(nombre):\n    return render_template('saludo.html', nombre=nombre)"),
+("Formularios y sesiones","Los formularios envían datos mediante GET o POST. Validá siempre en el servidor. Las sesiones guardan datos pequeños asociados a una visita.","from flask import request, session\n\n@app.post('/entrar')\ndef entrar():\n    usuario = request.form.get('usuario', '').strip()\n    session['usuario'] = usuario\n    return 'Sesión iniciada'"),
+("Estructura y despliegue","Separá rutas, plantillas, estilos y configuración. Guardá claves en variables de entorno y usá un servidor WSGI como Gunicorn en producción.","# requirements.txt\nFlask\ngunicorn\n\n# inicio de producción\n# gunicorn app:app")
+],
+"bases-datos":[
+("Tablas y registros","Una base relacional organiza información en tablas. Cada fila es un registro y cada columna un atributo. Una clave primaria identifica cada fila.","CREATE TABLE alumnos (\n  id INTEGER PRIMARY KEY,\n  nombre TEXT NOT NULL,\n  edad INTEGER\n);"),
+("Consultar información","SELECT recupera columnas. WHERE filtra filas y ORDER BY ordena resultados. Evitá traer más datos de los necesarios.","SELECT nombre, edad\nFROM alumnos\nWHERE edad >= 13\nORDER BY nombre;"),
+("Modificar registros","INSERT agrega filas, UPDATE modifica y DELETE elimina. En aplicaciones reales usá parámetros en lugar de concatenar texto para evitar inyección SQL.","INSERT INTO alumnos (nombre, edad)\nVALUES ('Alex', 14);\n\nUPDATE alumnos SET edad = 15 WHERE id = 1;"),
+("Relaciones y SQLite","Las claves foráneas conectan tablas. SQLite guarda la base en un archivo y es útil para aprender y proyectos pequeños; en producción evaluá persistencia y copias de seguridad.","CREATE TABLE cursos (\n id INTEGER PRIMARY KEY,\n titulo TEXT NOT NULL\n);\n\nCREATE TABLE inscripciones (\n alumno_id INTEGER,\n curso_id INTEGER\n);")
+],
+"github":[
+("Git y repositorios","Git registra la historia de cambios de un proyecto. Un repositorio contiene archivos y commits. GitHub aloja repositorios y agrega colaboración web.","git init\ngit status\ngit add .\ngit commit -m 'Primer commit'"),
+("Commits y seguimiento","Un commit guarda una versión con un mensaje. Revisá git status antes de confirmar y agrupá cambios relacionados.","git add app.py\ngit commit -m 'Agregar ruta de inicio'\ngit log --oneline"),
+("Ramas y colaboración","Las ramas permiten trabajar en una mejora sin tocar directamente la rama principal. Antes de combinar, revisá los cambios y resolvé conflictos.","git switch -c nueva-funcion\n# trabajar y guardar cambios\ngit switch main\ngit merge nueva-funcion"),
+("GitHub desde el navegador","Podés crear archivos, editar, subir carpetas y revisar el historial desde GitHub. README explica el proyecto y .gitignore excluye archivos locales o secretos.","# .gitignore\n__pycache__/\n.venv/\n*.db\n.env")
+],
+"render":[
+("Preparar Flask","Comprobá que app.py exponga una variable llamada app, que requirements.txt incluya dependencias y que el comando de inicio use Gunicorn.","# requirements.txt\nFlask\ngunicorn\n\n# Procfile\nweb: gunicorn app:app"),
+("Conectar GitHub","Creá un Web Service, elegí el repositorio y la rama correcta. El servicio puede reconstruirse automáticamente cuando llega un nuevo commit.","Build: pip install -r requirements.txt\nStart: gunicorn app:app"),
+("Variables de entorno","Guardá SECRET_KEY y contraseñas en el panel Environment. No las escribas en app.py ni las subas al repositorio. Usá valores largos y privados.","import os\nSECRET_KEY = os.environ.get('SECRET_KEY')\nADMIN_USER = os.environ.get('ADMIN_USER')"),
+("Deploy y logs","Revisá el estado Live y probá la URL. Si aparece un error 500, abrí Logs y buscá la última excepción completa. Verificá rutas, dependencias y base de datos.","# Revisar dependencias\npip freeze\n\n# Inicio local\nflask --app app run --debug")
+],
 }
-}
+DEFAULT_DETAILS = [
+("Comprender el concepto","Empezá identificando qué problema resuelve esta tecnología, dónde se utiliza y qué conceptos necesitás conocer antes de avanzar. No memorices definiciones aisladas: relacioná cada idea con un ejemplo real.","Pensá en una aplicación pequeña y anotá qué datos recibe, qué proceso realiza y qué resultado muestra."),
+("Leer un ejemplo","Observá la estructura del código, los nombres de variables y la función de cada instrucción. Cambiá un valor por vez para comprobar cómo cambia el resultado.","# Ejemplo para experimentar\nmensaje = 'Estoy aprendiendo'\nprint(mensaje)"),
+("Practicar paso a paso","Dividí el ejercicio en tareas pequeñas. Probá cada parte, guardá los cambios y revisá el resultado antes de sumar más complejidad.","1. Prepará el archivo.\n2. Escribí una versión mínima.\n3. Ejecutá y observá.\n4. Mejorá una parte."),
+("Aplicar y revisar","Un proyecto sirve para unir conceptos. Probá entradas válidas e inválidas, revisá mensajes de error y documentá cómo se utiliza.","Antes de terminar, comprobá que el proyecto funcione, que sus nombres sean claros y que otra persona pueda entenderlo.")
+]
+for c in COURSES:
+    c["lessons"] = []
+    details = DETAILS.get(c["slug"], DEFAULT_DETAILS)
+    for i, (title, explanation, code) in enumerate(details, 1):
+        c["lessons"].append({"number": i, "title": title, "explanation": explanation, "code": code})
 
-# Ampliación didáctica de los cursos
-EXTRA_SECTIONS = {
-  "primeros-pasos": [
-    [
-      "Qué es un algoritmo",
-      "Un algoritmo es una serie ordenada de pasos para resolver un problema. Una receta tiene ingredientes y pasos; en programación hacemos algo parecido, pero escribiendo instrucciones."
-    ],
-    [
-      "Frontend y backend",
-      "Frontend es la parte que ve y utiliza la persona: textos, botones y pantallas. Backend es la parte que trabaja detrás: recibe datos, aplica reglas y puede consultar una base de datos."
-    ],
-    [
-      "Archivos y carpetas",
-      "HTML suele estar en templates, CSS y JavaScript en static, y una aplicación Flask puede iniciar desde app.py. Respetá los nombres y las mayúsculas."
-    ],
-    [
-      "Cómo practicar",
-      "Elegí un cambio pequeño, guardá el archivo, recargá el navegador y observá qué pasó. Si algo falla, revisá el mensaje de error y la ruta del archivo."
-    ]
-  ],
-  "html": [
-    [
-      "Títulos y jerarquía",
-      "Usá un h1 para el título principal y h2 para las secciones. Elegí la etiqueta por el significado del contenido, no solamente por su tamaño."
-    ],
-    [
-      "Listas e imágenes",
-      "ul crea una lista sin orden y ol una lista numerada. Para una imagen usamos img con src y un texto alternativo alt."
-    ],
-    [
-      "Formularios",
-      "Los formularios permiten recibir información. Cada input debe tener una etiqueta label asociada para que sea más fácil de usar."
-    ],
-    [
-      "HTML semántico",
-      "header, nav, main, section, article y footer describen partes de la página y ayudan a organizar el contenido."
-    ],
-    [
-      "Errores frecuentes",
-      "Revisá que las etiquetas estén bien escritas, que los atributos tengan comillas y que las rutas de imágenes o enlaces sean correctas."
-    ]
-  ],
-  "css": [
-    [
-      "Colores, medidas y tipografía",
-      "Podés usar hexadecimal como #1769aa. Para tamaños son comunes px, rem y porcentajes. Elegí una tipografía legible."
-    ],
-    [
-      "Modelo de caja",
-      "Cada elemento ocupa una caja: content es el contenido, padding el espacio interior, border el borde y margin el espacio exterior."
-    ],
-    [
-      "Clases y reutilización",
-      "Una clase empieza con punto en CSS, por ejemplo .tarjeta. En HTML se escribe class=tarjeta. Podés reutilizarla en muchos elementos."
-    ],
-    [
-      "Flexbox y Grid",
-      "Flexbox sirve para ordenar elementos en una dirección; Grid permite organizar filas y columnas."
-    ],
-    [
-      "Responsive",
-      "Una media query aplica estilos según el tamaño de pantalla. Probá tu página en un celular y evitá el desplazamiento horizontal."
-    ]
-  ],
-  "javascript": [
-    [
-      "Tipos de datos",
-      "JavaScript trabaja con textos (string), números (number), valores verdadero/falso (boolean), listas (arrays) y objetos."
-    ],
-    [
-      "Condiciones",
-      "if permite ejecutar instrucciones cuando se cumple una condición. else indica qué hacer cuando no se cumple."
-    ],
-    [
-      "Repeticiones",
-      "for y while repiten instrucciones. Usalos para procesar varios elementos, cuidando que el ciclo pueda terminar."
-    ],
-    [
-      "Funciones",
-      "Una función agrupa instrucciones para reutilizarlas. Puede recibir parámetros y devolver un resultado con return."
-    ],
-    [
-      "DOM y eventos",
-      "El DOM representa el documento HTML. Con querySelector seleccionás elementos y con addEventListener reaccionás a eventos como click."
-    ]
-  ],
-  "pagina-completa": [
-    [
-      "Preparar la carpeta",
-      "Separá index.html, style.css y script.js. En proyectos Flask, las plantillas van en templates y los recursos en static."
-    ],
-    [
-      "Contenido accesible",
-      "Usá títulos en orden, enlaces descriptivos, textos alternativos en imágenes y botones para acciones."
-    ],
-    [
-      "Dar estilo",
-      "Definí colores, tipografías y espacios generales. Después creá componentes reutilizables, como tarjetas y botones."
-    ],
-    [
-      "Sumar interacción",
-      "Conectá un archivo JavaScript y escuchá los eventos de los botones. Mantené el contenido y el comportamiento separados."
-    ],
-    [
-      "Probar antes de publicar",
-      "Revisá enlaces, botones, tamaños de pantalla y consola del navegador. Pedile a otra persona que pruebe la página."
-    ]
-  ],
-  "github": [
-    [
-      "Qué es Git",
-      "Git registra cambios en los archivos. GitHub aloja repositorios en Internet y agrega herramientas para colaborar."
-    ],
-    [
-      "Commit",
-      "Un commit es una captura de cambios con un mensaje que explica qué modificaste. Conviene hacer cambios pequeños y mensajes claros."
-    ],
-    [
-      "Ramas",
-      "Una rama permite probar cambios sin modificar inmediatamente la versión principal."
-    ],
-    [
-      "README y .gitignore",
-      "README.md explica el proyecto. .gitignore indica qué archivos no deberían subirse, como entornos virtuales o archivos con secretos."
-    ],
-    [
-      "Cuidar información privada",
-      "Nunca subas contraseñas, tokens ni claves SECRET_KEY. Si una clave se publica, cambiala."
-    ]
-  ],
-  "render": [
-    [
-      "Comando de instalación",
-      "Build Command instala las dependencias del proyecto, normalmente con pip install -r requirements.txt."
-    ],
-    [
-      "Comando de inicio",
-      "Para Flask con Gunicorn suele usarse gunicorn app:app: el primer app es el archivo app.py y el segundo es la variable Flask."
-    ],
-    [
-      "Variables de entorno",
-      "Las variables guardan configuración fuera del código. SECRET_KEY debe ser larga, aleatoria y privada. ADMIN_USER y ADMIN_PASSWORD definen el acceso administrativo si la aplicación las utiliza."
-    ],
-    [
-      "Logs y errores",
-      "Si el despliegue falla, abrí los logs y leé el último traceback desde el final. Buscá archivos faltantes, dependencias o variables no configuradas."
-    ],
-    [
-      "Persistencia",
-      "Algunos servicios pueden reemplazar el disco local al reiniciar. Para conservar datos importantes, necesitás almacenamiento persistente o una base de datos externa."
-    ]
-  ]
-}
-for course_slug, extra in EXTRA_SECTIONS.items():
-    LESSONS[course_slug]["sections"].extend([tuple(item) for item in extra])
-
-@app.route("/aprender-programar")
-def learn_programming():
-    return render_template("learn.html", courses=COURSES)
-
-def db():
-    conn = sqlite3.connect(DATABASE)
+def get_db():
+    path = Path(DATABASE)
+    if str(path.parent) not in ("", "."):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DATABASE, timeout=20)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 def init_db():
-    with db() as conn:
-        conn.execute("""CREATE TABLE IF NOT EXISTS comments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""")
+    with get_db() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS comments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          message TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS progress (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          course_slug TEXT NOT NULL,
+          lesson_number INTEGER NOT NULL,
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, course_slug, lesson_number)
+        );
+        CREATE TABLE IF NOT EXISTS challenge_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          nickname TEXT NOT NULL,
+          answer TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+def csrf_token():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(24)
+    return session["_csrf"]
+
+app.jinja_env.globals["csrf_token"] = csrf_token
+
+@app.before_request
+def protect_forms():
+    if request.method == "POST":
+        sent = request.form.get("_csrf", "")
+        expected = session.get("_csrf", "")
+        if not expected or not sent or not hmac.compare_digest(sent, expected):
+            abort(400, description="El formulario venció o no es válido. Volvé a cargar la página e intentá otra vez.")
+
+def current_user():
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    with get_db() as conn:
+        row = conn.execute("SELECT id, username, created_at FROM users WHERE id = ?", (uid,)).fetchone()
+    if not row:
+        session.pop("user_id", None)
+        return None
+    return dict(row)
+
+@app.context_processor
+def inject_globals():
+    return {"current_user": current_user()}
+
+def login_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not session.get("user_id"):
+            flash("Iniciá sesión para guardar tu progreso.", "info")
+            return redirect(url_for("login", next=request.path))
+        return fn(*args, **kwargs)
+    return wrapper
 
 def admin_required(fn):
     @wraps(fn)
@@ -279,19 +198,179 @@ def admin_required(fn):
         return fn(*args, **kwargs)
     return wrapper
 
+def course_by_slug(slug):
+    return next((c for c in COURSES if c["slug"] == slug), None)
+
+def progress_for(user_id):
+    with get_db() as conn:
+        rows = conn.execute("SELECT course_slug, lesson_number FROM progress WHERE user_id = ?", (user_id,)).fetchall()
+    result = {}
+    for row in rows:
+        result.setdefault(row["course_slug"], set()).add(row["lesson_number"])
+    return result
+
 @app.route("/")
 def home():
-    with db() as conn:
-        comments = conn.execute("SELECT * FROM comments ORDER BY id DESC LIMIT 20").fetchall()
-    return render_template("index.html", courses=COURSES, comments=comments)
+    with get_db() as conn:
+        comments = conn.execute("SELECT * FROM comments ORDER BY id DESC LIMIT 12").fetchall()
+        students = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        completed = conn.execute("SELECT COUNT(*) FROM progress").fetchone()[0]
+    return render_template("index.html", courses=COURSES, comments=comments, students=students, completed=completed)
+
+@app.route("/aprender-programar")
+def learn_programming():
+    return render_template("learn.html", courses=COURSES)
 
 @app.route("/curso/<slug>")
 def course(slug):
-    item = next((c for c in COURSES if c["slug"] == slug), None)
-    lesson = LESSONS.get(slug)
-    if not item or not lesson:
+    item = course_by_slug(slug)
+    if not item:
         abort(404)
-    return render_template("course.html", course=item, lesson=lesson, courses=COURSES)
+    done = set()
+    if session.get("user_id"):
+        done = progress_for(session["user_id"]).get(slug, set())
+    return render_template("course.html", course=item, done=done)
+
+@app.post("/curso/<slug>/completar/<int:lesson_number>")
+@login_required
+def complete_lesson(slug, lesson_number):
+    item = course_by_slug(slug)
+    if not item or lesson_number < 1 or lesson_number > len(item["lessons"]):
+        abort(404)
+    with get_db() as conn:
+        conn.execute("INSERT OR IGNORE INTO progress (user_id, course_slug, lesson_number) VALUES (?, ?, ?)",
+                     (session["user_id"], slug, lesson_number))
+    flash("¡Lección marcada como completada! Sumaste progreso.", "success")
+    return redirect(url_for("course", slug=slug) + "#leccion-" + str(lesson_number))
+
+@app.route("/registro", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        if len(username) < 3 or len(username) > 24 or not username.replace("_", "").isalnum():
+            flash("El usuario debe tener entre 3 y 24 caracteres: letras, números o guion bajo.", "error")
+        elif len(password) < 10:
+            flash("La contraseña debe tener al menos 10 caracteres.", "error")
+        else:
+            try:
+                with get_db() as conn:
+                    cur = conn.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                                       (username, generate_password_hash(password)))
+                    session.clear()
+                    session["user_id"] = cur.lastrowid
+                    csrf_token()
+                flash("¡Cuenta creada! Ya podés guardar tu progreso.", "success")
+                return redirect(url_for("dashboard"))
+            except sqlite3.IntegrityError:
+                flash("Ese nombre de usuario ya está en uso.", "error")
+    return render_template("auth.html", mode="register")
+
+@app.route("/ingresar", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        with get_db() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            csrf_token()
+            flash("¡Qué bueno verte de nuevo!", "success")
+            next_url = request.args.get("next", "")
+            if next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+            return redirect(url_for("dashboard"))
+        flash("Usuario o contraseña incorrectos.", "error")
+    return render_template("auth.html", mode="login")
+
+@app.route("/salir")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+@app.route("/mi-aprendizaje")
+@login_required
+def dashboard():
+    user = current_user()
+    progress = progress_for(user["id"])
+    completed_count = sum(len(v) for v in progress.values())
+    total_lessons = sum(len(c["lessons"]) for c in COURSES)
+    with get_db() as conn:
+        challenges = conn.execute("SELECT COUNT(*) FROM challenge_entries WHERE user_id = ?", (user["id"],)).fetchone()[0]
+    xp = completed_count * 25 + challenges * 20
+    badges = []
+    if completed_count >= 1: badges.append("Primer paso")
+    if completed_count >= 4: badges.append("Cuatro lecciones")
+    if completed_count >= 10: badges.append("Constancia")
+    if challenges >= 1: badges.append("Primer desafío")
+    return render_template("dashboard.html", user=user, progress=progress, completed_count=completed_count,
+                           total_lessons=total_lessons, xp=xp, badges=badges, challenges=challenges)
+
+@app.route("/certificado/<slug>")
+@login_required
+def certificate(slug):
+    item = course_by_slug(slug)
+    if not item:
+        abort(404)
+    done = progress_for(session["user_id"]).get(slug, set())
+    if len(done) < len(item["lessons"]):
+        flash("Completá todas las lecciones para habilitar el certificado.", "info")
+        return redirect(url_for("course", slug=slug))
+    return render_template("certificate.html", course=item, user=current_user(), date=datetime.now(timezone.utc).strftime("%d/%m/%Y"))
+
+@app.route("/laboratorio")
+def laboratory():
+    return render_template("laboratory.html")
+
+@app.route("/herramientas")
+def tools_page():
+    return render_template("tools.html")
+
+@app.route("/proyectos")
+def projects():
+    project_list = [
+        ("Tarjeta personal","HTML + CSS","Una presentación con foto, descripción y enlaces.","🪪","Principiante"),
+        ("Landing de restaurante","HTML + CSS + responsive","Una portada, menú, horarios y contacto.","🍽️","Principiante"),
+        ("Calculadora","JavaScript","Operaciones básicas, validación y botones.","🧮","Inicial"),
+        ("Lista de tareas","JavaScript + localStorage","Agregar, completar y borrar tareas.","✅","Inicial"),
+        ("Blog con Flask","Python + Flask + SQLite","Publicar entradas y mostrarlas desde una base de datos.","✍️","Intermedio"),
+        ("Panel de usuarios","Flask + SQL + seguridad","Registro, inicio de sesión y una zona privada.","🔐","Intermedio"),
+        ("App del clima","API + JavaScript","Consultar datos meteorológicos desde un servicio externo.","🌦️","Intermedio"),
+        ("Portfolio final","HTML + CSS + JavaScript","Mostrar tus proyectos y explicar lo que aprendiste.","🏆","Proyecto final"),
+    ]
+    return render_template("projects.html", projects=project_list)
+
+@app.route("/retos", methods=["GET", "POST"])
+def challenges():
+    challenge = {"title":"Tu tarjeta de presentación","description":"Creá una tarjeta HTML con tu nombre, una breve presentación y un enlace. Aplicale al menos tres reglas CSS.","hint":"Usá una etiqueta h1, un párrafo, un enlace y una clase CSS para la tarjeta."}
+    if request.method == "POST":
+        nickname = request.form.get("nickname", "").strip()
+        answer = request.form.get("answer", "").strip()
+        if len(nickname) < 2 or len(nickname) > 24 or len(answer) < 10 or len(answer) > 800:
+            flash("Completá un apodo y una respuesta de entre 10 y 800 caracteres.", "error")
+        else:
+            user_id = session.get("user_id")
+            with get_db() as conn:
+                conn.execute("INSERT INTO challenge_entries (user_id, nickname, answer) VALUES (?, ?, ?)",
+                             (user_id, nickname, answer))
+            flash("¡Desafío enviado! Sumaste 20 XP si tenés una cuenta.", "success")
+            return redirect(url_for("challenges"))
+    with get_db() as conn:
+        entries = conn.execute("SELECT nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 8").fetchall()
+    return render_template("challenges.html", challenge=challenge, entries=entries)
+
+@app.route("/ranking")
+def ranking():
+    with get_db() as conn:
+        rows = conn.execute("""
+          SELECT u.username,
+          (SELECT COUNT(*) FROM progress p WHERE p.user_id=u.id)*25 +
+          (SELECT COUNT(*) FROM challenge_entries c WHERE c.user_id=u.id)*20 AS xp
+          FROM users u ORDER BY xp DESC, u.username ASC LIMIT 20
+        """).fetchall()
+    return render_template("ranking.html", ranking=rows)
 
 @app.post("/comentarios")
 def add_comment():
@@ -301,7 +380,7 @@ def add_comment():
     elif len(message) > 600:
         flash("El mensaje es demasiado largo (máximo 600 caracteres).", "error")
     else:
-        with db() as conn:
+        with get_db() as conn:
             conn.execute("INSERT INTO comments (message) VALUES (?)", (message,))
         flash("¡Tu mensaje se publicó correctamente!", "success")
     return redirect(url_for("home") + "#comunidad")
@@ -309,29 +388,33 @@ def add_comment():
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
-        username = os.environ.get("ADMIN_USER", "admin")
-        password_hash = os.environ.get("ADMIN_PASSWORD_HASH")
-        password = os.environ.get("ADMIN_PASSWORD", "cambiar123")
+        username = os.environ.get("ADMIN_USER", "")
+        password = os.environ.get("ADMIN_PASSWORD", "")
         entered_user = request.form.get("username", "")
         entered_password = request.form.get("password", "")
-        valid_password = check_password_hash(password_hash, entered_password) if password_hash else entered_password == password
-        if entered_user == username and valid_password:
+        if username and password and hmac.compare_digest(entered_user, username) and hmac.compare_digest(entered_password, password):
+            session.clear()
             session["admin"] = True
+            csrf_token()
             return redirect(url_for("admin"))
-        flash("Usuario o contraseña incorrectos.", "error")
+        flash("Acceso no configurado o credenciales incorrectas. Revisá ADMIN_USER y ADMIN_PASSWORD en Render.", "error")
     return render_template("admin_login.html")
 
 @app.route("/admin")
 @admin_required
 def admin():
-    with db() as conn:
+    with get_db() as conn:
         comments = conn.execute("SELECT * FROM comments ORDER BY id DESC").fetchall()
-    return render_template("admin.html", comments=comments, courses=COURSES)
+        users = conn.execute("SELECT id, username, created_at FROM users ORDER BY id DESC LIMIT 50").fetchall()
+        submissions = conn.execute("SELECT nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 30").fetchall()
+        progress_count = conn.execute("SELECT COUNT(*) FROM progress").fetchone()[0]
+    return render_template("admin.html", comments=comments, users=users, submissions=submissions,
+                           courses=COURSES, progress_count=progress_count)
 
 @app.post("/admin/comentario/<int:comment_id>/eliminar")
 @admin_required
 def delete_comment(comment_id):
-    with db() as conn:
+    with get_db() as conn:
         conn.execute("DELETE FROM comments WHERE id = ?", (comment_id,))
     flash("Comentario eliminado.", "success")
     return redirect(url_for("admin"))
@@ -345,7 +428,11 @@ def admin_logout():
 def not_found(error):
     return render_template("404.html"), 404
 
+@app.errorhandler(400)
+def bad_request(error):
+    return render_template("error.html", code=400, message=getattr(error, "description", "Solicitud no válida.")), 400
+
 init_db()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
