@@ -98,6 +98,166 @@ LESSONS = {
 }
 }
 
+# Ampliación didáctica de los cursos
+EXTRA_SECTIONS = {
+  "primeros-pasos": [
+    [
+      "Qué es un algoritmo",
+      "Un algoritmo es una serie ordenada de pasos para resolver un problema. Una receta tiene ingredientes y pasos; en programación hacemos algo parecido, pero escribiendo instrucciones."
+    ],
+    [
+      "Frontend y backend",
+      "Frontend es la parte que ve y utiliza la persona: textos, botones y pantallas. Backend es la parte que trabaja detrás: recibe datos, aplica reglas y puede consultar una base de datos."
+    ],
+    [
+      "Archivos y carpetas",
+      "HTML suele estar en templates, CSS y JavaScript en static, y una aplicación Flask puede iniciar desde app.py. Respetá los nombres y las mayúsculas."
+    ],
+    [
+      "Cómo practicar",
+      "Elegí un cambio pequeño, guardá el archivo, recargá el navegador y observá qué pasó. Si algo falla, revisá el mensaje de error y la ruta del archivo."
+    ]
+  ],
+  "html": [
+    [
+      "Títulos y jerarquía",
+      "Usá un h1 para el título principal y h2 para las secciones. Elegí la etiqueta por el significado del contenido, no solamente por su tamaño."
+    ],
+    [
+      "Listas e imágenes",
+      "ul crea una lista sin orden y ol una lista numerada. Para una imagen usamos img con src y un texto alternativo alt."
+    ],
+    [
+      "Formularios",
+      "Los formularios permiten recibir información. Cada input debe tener una etiqueta label asociada para que sea más fácil de usar."
+    ],
+    [
+      "HTML semántico",
+      "header, nav, main, section, article y footer describen partes de la página y ayudan a organizar el contenido."
+    ],
+    [
+      "Errores frecuentes",
+      "Revisá que las etiquetas estén bien escritas, que los atributos tengan comillas y que las rutas de imágenes o enlaces sean correctas."
+    ]
+  ],
+  "css": [
+    [
+      "Colores, medidas y tipografía",
+      "Podés usar hexadecimal como #1769aa. Para tamaños son comunes px, rem y porcentajes. Elegí una tipografía legible."
+    ],
+    [
+      "Modelo de caja",
+      "Cada elemento ocupa una caja: content es el contenido, padding el espacio interior, border el borde y margin el espacio exterior."
+    ],
+    [
+      "Clases y reutilización",
+      "Una clase empieza con punto en CSS, por ejemplo .tarjeta. En HTML se escribe class=tarjeta. Podés reutilizarla en muchos elementos."
+    ],
+    [
+      "Flexbox y Grid",
+      "Flexbox sirve para ordenar elementos en una dirección; Grid permite organizar filas y columnas."
+    ],
+    [
+      "Responsive",
+      "Una media query aplica estilos según el tamaño de pantalla. Probá tu página en un celular y evitá el desplazamiento horizontal."
+    ]
+  ],
+  "javascript": [
+    [
+      "Tipos de datos",
+      "JavaScript trabaja con textos (string), números (number), valores verdadero/falso (boolean), listas (arrays) y objetos."
+    ],
+    [
+      "Condiciones",
+      "if permite ejecutar instrucciones cuando se cumple una condición. else indica qué hacer cuando no se cumple."
+    ],
+    [
+      "Repeticiones",
+      "for y while repiten instrucciones. Usalos para procesar varios elementos, cuidando que el ciclo pueda terminar."
+    ],
+    [
+      "Funciones",
+      "Una función agrupa instrucciones para reutilizarlas. Puede recibir parámetros y devolver un resultado con return."
+    ],
+    [
+      "DOM y eventos",
+      "El DOM representa el documento HTML. Con querySelector seleccionás elementos y con addEventListener reaccionás a eventos como click."
+    ]
+  ],
+  "pagina-completa": [
+    [
+      "Preparar la carpeta",
+      "Separá index.html, style.css y script.js. En proyectos Flask, las plantillas van en templates y los recursos en static."
+    ],
+    [
+      "Contenido accesible",
+      "Usá títulos en orden, enlaces descriptivos, textos alternativos en imágenes y botones para acciones."
+    ],
+    [
+      "Dar estilo",
+      "Definí colores, tipografías y espacios generales. Después creá componentes reutilizables, como tarjetas y botones."
+    ],
+    [
+      "Sumar interacción",
+      "Conectá un archivo JavaScript y escuchá los eventos de los botones. Mantené el contenido y el comportamiento separados."
+    ],
+    [
+      "Probar antes de publicar",
+      "Revisá enlaces, botones, tamaños de pantalla y consola del navegador. Pedile a otra persona que pruebe la página."
+    ]
+  ],
+  "github": [
+    [
+      "Qué es Git",
+      "Git registra cambios en los archivos. GitHub aloja repositorios en Internet y agrega herramientas para colaborar."
+    ],
+    [
+      "Commit",
+      "Un commit es una captura de cambios con un mensaje que explica qué modificaste. Conviene hacer cambios pequeños y mensajes claros."
+    ],
+    [
+      "Ramas",
+      "Una rama permite probar cambios sin modificar inmediatamente la versión principal."
+    ],
+    [
+      "README y .gitignore",
+      "README.md explica el proyecto. .gitignore indica qué archivos no deberían subirse, como entornos virtuales o archivos con secretos."
+    ],
+    [
+      "Cuidar información privada",
+      "Nunca subas contraseñas, tokens ni claves SECRET_KEY. Si una clave se publica, cambiala."
+    ]
+  ],
+  "render": [
+    [
+      "Comando de instalación",
+      "Build Command instala las dependencias del proyecto, normalmente con pip install -r requirements.txt."
+    ],
+    [
+      "Comando de inicio",
+      "Para Flask con Gunicorn suele usarse gunicorn app:app: el primer app es el archivo app.py y el segundo es la variable Flask."
+    ],
+    [
+      "Variables de entorno",
+      "Las variables guardan configuración fuera del código. SECRET_KEY debe ser larga, aleatoria y privada. ADMIN_USER y ADMIN_PASSWORD definen el acceso administrativo si la aplicación las utiliza."
+    ],
+    [
+      "Logs y errores",
+      "Si el despliegue falla, abrí los logs y leé el último traceback desde el final. Buscá archivos faltantes, dependencias o variables no configuradas."
+    ],
+    [
+      "Persistencia",
+      "Algunos servicios pueden reemplazar el disco local al reiniciar. Para conservar datos importantes, necesitás almacenamiento persistente o una base de datos externa."
+    ]
+  ]
+}
+for course_slug, extra in EXTRA_SECTIONS.items():
+    LESSONS[course_slug]["sections"].extend([tuple(item) for item in extra])
+
+@app.route("/aprender-programar")
+def learn_programming():
+    return render_template("learn.html", courses=COURSES)
+
 def db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
