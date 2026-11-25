@@ -69,6 +69,12 @@ DETAILS = {
 ("Funciones y arrays","Una función agrupa una tarea reutilizable. Los parámetros reciben datos y return devuelve un resultado. Los arrays guardan colecciones ordenadas.","function sumar(a, b) {\n  return a + b;\n}\nconst total = sumar(4, 6);"),
 ("DOM y eventos","El DOM representa el documento. querySelector encuentra elementos y addEventListener permite reaccionar a clics, envíos y otras acciones.","const boton = document.querySelector('#saludar');\nboton.addEventListener('click', () => {\n  document.querySelector('#salida').textContent = '¡Hola!';\n});")
 ],
+"pagina-completa":[
+("Planificar y organizar","Antes de programar definí el objetivo, el público y las secciones. Separá HTML, CSS y JavaScript en archivos claros.","mi-sitio/\n├── index.html\n├── css/style.css\n└── js/main.js"),
+("Construir la estructura","Usá etiquetas semánticas y ordená el contenido en encabezado, navegación, contenido principal y pie de página.","<header><h1>Mi sitio</h1></header>\n<nav><a href='#sobre-mi'>Sobre mí</a></nav>\n<main><section id='sobre-mi'>...</section></main>"),
+("Aplicar estilos e interacción","Definí colores y espaciados reutilizables. Con JavaScript escuchá eventos y actualizá el contenido sin recargar la página.","const boton = document.querySelector('#tema');\nboton.addEventListener('click', () => {\n document.body.classList.toggle('claro');\n});"),
+("Revisar y publicar","Probá enlaces, formularios, navegación con teclado y diseño móvil. Subí el proyecto a GitHub y publicalo desde un servicio de hosting.","Checklist:\n- Revisar en celular\n- Corregir rutas\n- Agregar README\n- Publicar y probar la URL")
+],
 "python":[
 ("Instalar y ejecutar","Python es un lenguaje de propósito general. Un archivo suele terminar en .py y se ejecuta con python archivo.py. Los espacios al inicio de línea definen bloques.","print('Hola, mundo')\n# Comentario: explica una decisión\nprint('Estoy aprendiendo Python')"),
 ("Variables y tipos","Los nombres de variables deben ser descriptivos. int representa enteros, float decimales, str texto y bool verdadero/falso. input recibe texto del usuario.","nombre = input('¿Cómo te llamás? ')\nedad = int(input('Edad: '))\nprint(f'Hola {nombre}, tenés {edad}')"),
@@ -123,7 +129,7 @@ DETAILS.update({
 ("HTTP y endpoints","Una API permite que dos programas intercambien información. Un endpoint es una dirección que ofrece un recurso. HTTP define métodos y códigos de respuesta.","GET /api/productos\nPOST /api/productos\n200 OK · 404 Not Found"),
 ("JSON y métodos","JSON es un formato de texto para intercambiar datos. Los métodos GET consultan, POST crea, PUT/PATCH modifica y DELETE elimina.","const alumno = {\n  \"nombre\": \"Alex\",\n  \"activo\": true\n};"),
 ("fetch y async/await","fetch realiza solicitudes desde el navegador. async/await facilita esperar la respuesta. Comprobá response.ok antes de leer los datos.","async function cargar() {\n const r = await fetch('/api/datos');\n if (!r.ok) throw new Error('Error');\n return await r.json();\n}"),
-("Errores y seguridad","Manej á errores de red, validá respuestas y no expongas claves privadas en JavaScript del navegador. Los secretos deben permanecer en el servidor.","try {\n const datos = await cargar();\n console.log(datos);\n} catch (error) {\n console.error(error);\n}")
+("Errores y seguridad","Manejá errores de red, validá respuestas y no expongas claves privadas en JavaScript del navegador. Los secretos deben permanecer en el servidor.","try {\n const datos = await cargar();\n console.log(datos);\n} catch (error) {\n console.error(error);\n}")
 ],
 "seguridad":[
 ("Contraseñas y hashing","Nunca guardes contraseñas en texto plano. Guardá un hash generado con una función específica para contraseñas, como scrypt, bcrypt o Argon2.","from werkzeug.security import generate_password_hash\nhash_seguro = generate_password_hash('una-clave-larga')"),
