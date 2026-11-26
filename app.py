@@ -287,8 +287,10 @@ def calculate_streak(conn, user_id):
     days = {row["study_date"] for row in conn.execute(
         "SELECT study_date FROM study_days WHERE user_id = ?", (user_id,)).fetchall()}
     today = datetime.now(timezone.utc).date()
+    if not days:
+        return 0
+    cursor = today if today.isoformat() in days else today.fromordinal(today.toordinal() - 1)
     streak = 0
-    cursor = today
     while cursor.isoformat() in days:
         streak += 1
         cursor = cursor.fromordinal(cursor.toordinal() - 1)
@@ -448,6 +450,9 @@ def submit_quiz(slug):
                 if request.form.get("q" + str(i)) == str(question["answer"]))
     total = len(questions)
     with get_db() as conn:
+        previous = conn.execute("SELECT score FROM quiz_attempts WHERE user_id = ? AND course_slug = ?",
+                                (session["user_id"], slug)).fetchone()
+        first_pass = previous is None or previous["score"] < 2
         conn.execute("""INSERT INTO quiz_attempts (user_id, course_slug, score, total)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(user_id, course_slug)
@@ -456,8 +461,10 @@ def submit_quiz(slug):
             (session["user_id"], slug, score, total))
         if score >= 2:
             mark_study_day(conn, session["user_id"])
-    if score >= 2:
-        flash("¡Evaluación aprobada! "+str(score)+"/"+str(total)+" respuestas correctas. Sumaste 10 XP si es tu mejor resultado.", "success")
+    if score >= 2 and first_pass:
+        flash("¡Evaluación aprobada! "+str(score)+"/"+str(total)+" respuestas correctas. Desbloqueaste 10 XP.", "success")
+    elif score >= 2:
+        flash("¡Evaluación aprobada! "+str(score)+"/"+str(total)+" respuestas correctas. Tu mejor resultado quedó guardado.", "success")
     else:
         flash("Obtuviste "+str(score)+"/"+str(total)+". Repasá las clases e intentá otra vez.", "info")
     return redirect(url_for("course", slug=slug) + "#evaluacion")
@@ -598,7 +605,8 @@ def ranking():
         rows = conn.execute("""
           SELECT u.username,
           (SELECT COUNT(*) FROM progress p WHERE p.user_id=u.id)*25 +
-          (SELECT COUNT(*) FROM challenge_entries c WHERE c.user_id=u.id)*20 AS xp
+          (SELECT COUNT(*) FROM challenge_entries c WHERE c.user_id=u.id)*20 +
+          (SELECT COUNT(*) FROM quiz_attempts q WHERE q.user_id=u.id AND q.score >= 2)*10 AS xp
           FROM users u ORDER BY xp DESC, u.username ASC LIMIT 20
         """).fetchall()
     return render_template("ranking.html", ranking=rows)
