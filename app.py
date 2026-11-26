@@ -639,13 +639,17 @@ def admin():
         users = conn.execute("SELECT id, username, created_at FROM users ORDER BY id DESC LIMIT 50").fetchall()
         submissions = conn.execute("SELECT nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 30").fetchall()
         progress_count = conn.execute("SELECT COUNT(*) FROM progress").fetchone()[0]
+        notes_count = conn.execute("SELECT COUNT(*) FROM lesson_notes").fetchone()[0]
+        quiz_count = conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE score >= 2").fetchone()[0]
+        bookmark_count = conn.execute("SELECT COUNT(*) FROM bookmarks").fetchone()[0]
         saved = conn.execute("SELECT key, value FROM site_settings WHERE key IN ('challenge_title','challenge_description','challenge_hint')").fetchall()
     challenge = {"title":"Tu tarjeta de presentación","description":"Creá una tarjeta HTML con tu nombre, una breve presentación y un enlace. Aplicale al menos tres reglas CSS.","hint":"Usá una etiqueta h1, un párrafo, un enlace y una clase CSS para la tarjeta."}
     for row in saved:
         field = {"challenge_title":"title","challenge_description":"description","challenge_hint":"hint"}[row["key"]]
         challenge[field] = row["value"]
     return render_template("admin.html", comments=comments, users=users, submissions=submissions,
-                           courses=COURSES, progress_count=progress_count, challenge=challenge)
+                           courses=COURSES, progress_count=progress_count, challenge=challenge,
+                           notes_count=notes_count, quiz_count=quiz_count, bookmark_count=bookmark_count)
 
 
 @app.post("/admin/reto")
@@ -661,6 +665,15 @@ def update_challenge():
             conn.executemany("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                              [("challenge_title", title), ("challenge_description", description), ("challenge_hint", hint)])
         flash("¡El desafío semanal se actualizó!", "success")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/reto/<int:entry_id>/eliminar")
+@admin_required
+def delete_challenge_entry(entry_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM challenge_entries WHERE id = ?", (entry_id,))
+    flash("Entrega del reto eliminada.", "success")
     return redirect(url_for("admin"))
 
 @app.post("/admin/comentario/<int:comment_id>/eliminar")
