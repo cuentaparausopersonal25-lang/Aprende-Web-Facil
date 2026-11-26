@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block title %}Notificaciones · Aprende Web Fácil{% endblock %}{% block content %}
+<section class="page-hero"><div class="wrap"><div class="eyebrow">CENTRO DE AVISOS</div><h1>Tus <span>notificaciones.</span></h1><p>Acá aparecerán novedades y avisos de tu actividad.</p></div></section>
+<section class="section"><div class="wrap notification-list">{% for n in notifications %}<article class="panel"><b>{{ n.title }}</b><p>{{ n.body }}</p><small>{{ n.created_at }}</small></article>{% else %}<div class="panel"><h2>Todo tranquilo por acá</h2><p class="muted">Todavía no tenés notificaciones. Esta bandeja ya está preparada para futuras novedades.</p></div>{% endfor %}</div></section>{% endblock %}
