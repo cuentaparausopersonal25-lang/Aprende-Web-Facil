@@ -637,7 +637,7 @@ def admin():
     with get_db() as conn:
         comments = conn.execute("SELECT * FROM comments ORDER BY id DESC").fetchall()
         users = conn.execute("SELECT id, username, created_at FROM users ORDER BY id DESC LIMIT 50").fetchall()
-        submissions = conn.execute("SELECT nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 30").fetchall()
+        submissions = conn.execute("SELECT id, nickname, answer, created_at FROM challenge_entries ORDER BY id DESC LIMIT 30").fetchall()
         progress_count = conn.execute("SELECT COUNT(*) FROM progress").fetchone()[0]
         notes_count = conn.execute("SELECT COUNT(*) FROM lesson_notes").fetchone()[0]
         quiz_count = conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE score >= 2").fetchone()[0]
