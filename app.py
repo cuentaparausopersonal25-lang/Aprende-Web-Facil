@@ -675,6 +675,9 @@ def admin():
         notes_count = conn.execute("SELECT COUNT(*) FROM lesson_notes").fetchone()[0]
         quiz_count = conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE score >= 2").fetchone()[0]
         bookmark_count = conn.execute("SELECT COUNT(*) FROM bookmarks").fetchone()[0]
+        project_posts = conn.execute("""SELECT p.id, p.title, p.description, p.technologies, p.project_url,
+            p.created_at, u.username FROM project_posts p JOIN users u ON u.id=p.user_id
+            ORDER BY p.id DESC LIMIT 40""").fetchall()
         saved = conn.execute("SELECT key, value FROM site_settings WHERE key IN ('challenge_title','challenge_description','challenge_hint')").fetchall()
     challenge = {"title":"Tu tarjeta de presentación","description":"Creá una tarjeta HTML con tu nombre, una breve presentación y un enlace. Aplicale al menos tres reglas CSS.","hint":"Usá una etiqueta h1, un párrafo, un enlace y una clase CSS para la tarjeta."}
     for row in saved:
@@ -682,7 +685,7 @@ def admin():
         challenge[field] = row["value"]
     return render_template("admin.html", comments=comments, users=users, submissions=submissions,
                            courses=COURSES, progress_count=progress_count, challenge=challenge,
-                           notes_count=notes_count, quiz_count=quiz_count, bookmark_count=bookmark_count)
+                           notes_count=notes_count, quiz_count=quiz_count, bookmark_count=bookmark_count, project_posts=project_posts)
 
 
 @app.post("/admin/reto")
@@ -697,6 +700,8 @@ def update_challenge():
         with get_db() as conn:
             conn.executemany("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                              [("challenge_title", title), ("challenge_description", description), ("challenge_hint", hint)])
+            conn.execute("""INSERT INTO notifications (user_id, title, body)
+                SELECT id, ?, ? FROM users""", ("Nuevo reto semanal", title + " · " + description[:180]))
         flash("¡El desafío semanal se actualizó!", "success")
     return redirect(url_for("admin"))
 
@@ -707,6 +712,14 @@ def delete_challenge_entry(entry_id):
     with get_db() as conn:
         conn.execute("DELETE FROM challenge_entries WHERE id = ?", (entry_id,))
     flash("Entrega del reto eliminada.", "success")
+    return redirect(url_for("admin"))
+
+@app.post("/admin/proyecto/<int:post_id>/eliminar")
+@admin_required
+def delete_project_post(post_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM project_posts WHERE id = ?", (post_id,))
+    flash("Proyecto retirado de la comunidad.", "success")
     return redirect(url_for("admin"))
 
 @app.post("/admin/comentario/<int:comment_id>/eliminar")
