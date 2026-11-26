@@ -237,7 +237,62 @@ def init_db():
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS lesson_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          course_slug TEXT NOT NULL,
+          lesson_number INTEGER NOT NULL,
+          note TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, course_slug, lesson_number)
+        );
+        CREATE TABLE IF NOT EXISTS bookmarks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          course_slug TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, course_slug)
+        );
+        CREATE TABLE IF NOT EXISTS quiz_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          course_slug TEXT NOT NULL,
+          score INTEGER NOT NULL,
+          total INTEGER NOT NULL,
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, course_slug)
+        );
+        CREATE TABLE IF NOT EXISTS study_days (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          study_date TEXT NOT NULL,
+          UNIQUE(user_id, study_date)
+        );
         """)
+
+
+def course_quiz(item):
+    title = item["title"]
+    return [
+        {"question": "¿Cuál es el tema central de este curso?", "options": [title, "Edición de videos", "Diseño de hardware"], "answer": 0, "explanation": "El curso se centra en " + title + "."},
+        {"question": "¿Qué conviene hacer después de leer un ejemplo?", "options": ["Copiarlo sin leer", "Modificarlo, probarlo y entender el resultado", "Borrarlo sin ejecutarlo"], "answer": 1, "explanation": "Experimentar y explicar el resultado ayuda a comprender."},
+        {"question": "¿Qué hacer si aparece un error?", "options": ["Ignorarlo", "Borrar todo el proyecto", "Leer el mensaje, aislar el problema y probar una corrección"], "answer": 2, "explanation": "Los errores son parte del desarrollo; analizalos paso a paso."}
+    ]
+
+def mark_study_day(conn, user_id):
+    conn.execute("INSERT OR IGNORE INTO study_days (user_id, study_date) VALUES (?, ?)",
+                 (user_id, datetime.now(timezone.utc).date().isoformat()))
+
+def calculate_streak(conn, user_id):
+    days = {row["study_date"] for row in conn.execute(
+        "SELECT study_date FROM study_days WHERE user_id = ?", (user_id,)).fetchall()}
+    today = datetime.now(timezone.utc).date()
+    streak = 0
+    cursor = today
+    while cursor.isoformat() in days:
+        streak += 1
+        cursor = cursor.fromordinal(cursor.toordinal() - 1)
+    return streak
 
 def csrf_token():
     if "_csrf" not in session:
@@ -317,7 +372,17 @@ def course(slug):
     done = set()
     if session.get("user_id"):
         done = progress_for(session["user_id"]).get(slug, set())
-    return render_template("course.html", course=item, done=done)
+    notes = {}
+    bookmarks = False
+    if session.get("user_id"):
+        with get_db() as conn:
+            rows = conn.execute("SELECT lesson_number, note FROM lesson_notes WHERE user_id = ? AND course_slug = ?",
+                                (session["user_id"], slug)).fetchall()
+            notes = {row["lesson_number"]: row["note"] for row in rows}
+            bookmarks = conn.execute("SELECT 1 FROM bookmarks WHERE user_id = ? AND course_slug = ?",
+                                     (session["user_id"], slug)).fetchone() is not None
+    return render_template("course.html", course=item, done=done, notes=notes,
+                           bookmarked=bookmarks, quiz=course_quiz(item))
 
 @app.post("/curso/<slug>/completar/<int:lesson_number>")
 @login_required
@@ -328,8 +393,74 @@ def complete_lesson(slug, lesson_number):
     with get_db() as conn:
         conn.execute("INSERT OR IGNORE INTO progress (user_id, course_slug, lesson_number) VALUES (?, ?, ?)",
                      (session["user_id"], slug, lesson_number))
+        mark_study_day(conn, session["user_id"])
     flash("¡Lección marcada como completada! Sumaste progreso.", "success")
     return redirect(url_for("course", slug=slug) + "#leccion-" + str(lesson_number))
+
+
+@app.post("/curso/<slug>/guardar")
+@login_required
+def toggle_bookmark(slug):
+    item = course_by_slug(slug)
+    if not item:
+        abort(404)
+    with get_db() as conn:
+        exists = conn.execute("SELECT 1 FROM bookmarks WHERE user_id = ? AND course_slug = ?",
+                              (session["user_id"], slug)).fetchone()
+        if exists:
+            conn.execute("DELETE FROM bookmarks WHERE user_id = ? AND course_slug = ?",
+                         (session["user_id"], slug))
+            flash("Curso quitado de tus guardados.", "info")
+        else:
+            conn.execute("INSERT OR IGNORE INTO bookmarks (user_id, course_slug) VALUES (?, ?)",
+                         (session["user_id"], slug))
+            flash("Curso guardado en tu lista.", "success")
+    return redirect(url_for("course", slug=slug))
+
+@app.post("/curso/<slug>/apunte/<int:lesson_number>")
+@login_required
+def save_note(slug, lesson_number):
+    item = course_by_slug(slug)
+    if not item or lesson_number < 1 or lesson_number > len(item["lessons"]):
+        abort(404)
+    note = request.form.get("note", "").strip()
+    if len(note) > 2000:
+        flash("El apunte admite hasta 2000 caracteres.", "error")
+    else:
+        with get_db() as conn:
+            conn.execute("""INSERT INTO lesson_notes (user_id, course_slug, lesson_number, note)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, course_slug, lesson_number)
+                DO UPDATE SET note=excluded.note, updated_at=CURRENT_TIMESTAMP""",
+                (session["user_id"], slug, lesson_number, note))
+            mark_study_day(conn, session["user_id"])
+        flash("Tu apunte quedó guardado.", "success")
+    return redirect(url_for("course", slug=slug) + "#leccion-" + str(lesson_number))
+
+@app.post("/curso/<slug>/evaluar")
+@login_required
+def submit_quiz(slug):
+    item = course_by_slug(slug)
+    if not item:
+        abort(404)
+    questions = course_quiz(item)
+    score = sum(1 for i, question in enumerate(questions)
+                if request.form.get("q" + str(i)) == str(question["answer"]))
+    total = len(questions)
+    with get_db() as conn:
+        conn.execute("""INSERT INTO quiz_attempts (user_id, course_slug, score, total)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id, course_slug)
+            DO UPDATE SET score=MAX(score, excluded.score), total=excluded.total,
+                          completed_at=CURRENT_TIMESTAMP""",
+            (session["user_id"], slug, score, total))
+        if score >= 2:
+            mark_study_day(conn, session["user_id"])
+    if score >= 2:
+        flash("¡Evaluación aprobada! "+str(score)+"/"+str(total)+" respuestas correctas. Sumaste 10 XP si es tu mejor resultado.", "success")
+    else:
+        flash("Obtuviste "+str(score)+"/"+str(total)+". Repasá las clases e intentá otra vez.", "info")
+    return redirect(url_for("course", slug=slug) + "#evaluacion")
 
 @app.route("/registro", methods=["GET", "POST"])
 def register():
@@ -387,14 +518,19 @@ def dashboard():
     total_lessons = sum(len(c["lessons"]) for c in COURSES)
     with get_db() as conn:
         challenges = conn.execute("SELECT COUNT(*) FROM challenge_entries WHERE user_id = ?", (user["id"],)).fetchone()[0]
-    xp = completed_count * 25 + challenges * 20
+        quiz_passed = conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id = ? AND score >= 2", (user["id"],)).fetchone()[0]
+        saved_courses = conn.execute("SELECT course_slug FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC", (user["id"],)).fetchall()
+        recent_notes = conn.execute("SELECT course_slug, lesson_number, updated_at FROM lesson_notes WHERE user_id = ? ORDER BY updated_at DESC LIMIT 5", (user["id"],)).fetchall()
+        streak = calculate_streak(conn, user["id"])
+    xp = completed_count * 25 + challenges * 20 + quiz_passed * 10
     badges = []
     if completed_count >= 1: badges.append("Primer paso")
     if completed_count >= 4: badges.append("Cuatro lecciones")
     if completed_count >= 10: badges.append("Constancia")
     if challenges >= 1: badges.append("Primer desafío")
     return render_template("dashboard.html", user=user, progress=progress, completed_count=completed_count,
-                           total_lessons=total_lessons, xp=xp, badges=badges, challenges=challenges, courses=COURSES)
+                           total_lessons=total_lessons, xp=xp, badges=badges, challenges=challenges, courses=COURSES,
+                           quiz_passed=quiz_passed, saved_courses=saved_courses, recent_notes=recent_notes, streak=streak)
 
 @app.route("/certificado/<slug>")
 @login_required
@@ -448,6 +584,8 @@ def challenges():
             with get_db() as conn:
                 conn.execute("INSERT INTO challenge_entries (user_id, nickname, answer) VALUES (?, ?, ?)",
                              (user_id, nickname, answer))
+                if user_id:
+                    mark_study_day(conn, user_id)
             flash("¡Desafío enviado! Sumaste 20 XP si tenés una cuenta.", "success")
             return redirect(url_for("challenges"))
     with get_db() as conn:
