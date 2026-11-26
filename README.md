@@ -7,14 +7,17 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
 - Ejemplos de código y explicaciones por tema.
 - Registro e inicio de sesión de estudiantes.
 - Seguimiento de clases completadas.
-- Experiencia (XP), insignias y ranking.
+- Experiencia (XP), insignias, rachas de estudio y ranking.
+- Evaluaciones por curso con guardado de resultados y XP por primera aprobación.
+- Apuntes privados por lección y lista personal de cursos favoritos.
+- Buscador de cursos y filtros por categoría.
 - Certificado de finalización imprimible al completar un curso.
 - Laboratorio de HTML, CSS y JavaScript con vista previa aislada.
 - Retos semanales editables desde el panel administrador.
 - 10 herramientas de práctica para desarrollo web.
 - Proyectos guiados y comunidad con comentarios.
-- Comunidad con comentarios.
-- Panel de administración para publicar el reto semanal, moderar comentarios y revisar estudiantes y entregas.
+- Panel de administración para publicar el reto semanal, moderar comentarios y entregas, y consultar estadísticas de aprendizaje.
+- Pruebas automatizadas con GitHub Actions.
 
 ## Ejecutar localmente
 1. Instalá Python 3.11 o superior.
@@ -28,6 +31,9 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
    - PowerShell: $env:COOKIE_SECURE="false"
 5. Iniciá Flask: python app.py
 6. Abrí http://127.0.0.1:5000
+
+## Ejecutar pruebas
+Ejecutá `python -m unittest discover -s tests -v`. GitHub Actions también corre estas pruebas automáticamente al actualizar la rama principal.
 
 ## Variables de entorno en Render
 - SECRET_KEY: clave larga, aleatoria y privada. Render puede generarla desde render.yaml.
