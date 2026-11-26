@@ -115,5 +115,43 @@ class AcademySmokeTests(unittest.TestCase):
             profile = conn.execute("SELECT display_name FROM user_profiles").fetchone()
             self.assertEqual(profile["display_name"], "Estudiante Demo")
 
+
+    def test_legendary_academy_practice_and_private_snippets(self):
+        self.assertEqual(self.client.get("/academia").status_code, 200)
+        self.assertEqual(self.client.get("/practica").status_code, 200)
+        self.register_student()
+        response = self.client.get("/practica/1")
+        self.assertEqual(response.status_code, 200)
+        response = self.post("/practica/1", {"code": "<h1>Mi primera web</h1>"})
+        self.assertEqual(response.status_code, 200)
+        with site.get_db() as conn:
+            attempt = conn.execute("SELECT passed FROM exercise_attempts WHERE user_id=?", (1,)).fetchone()
+            self.assertIsNotNone(attempt)
+            self.assertEqual(attempt["passed"], 1)
+        response = self.post("/mis-fragmentos", {
+            "title": "Mi título HTML", "language": "HTML", "code": "<h1>Hola</h1>"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get("/mis-fragmentos").status_code, 200)
+        with site.get_db() as conn:
+            snippet = conn.execute("SELECT id FROM code_snippets WHERE user_id=?", (1,)).fetchone()
+        self.assertIsNotNone(snippet)
+        self.assertEqual(self.post(f"/mis-fragmentos/{snippet['id']}/eliminar").status_code, 200)
+
+    def test_admin_can_manage_practice_exercises(self):
+        self.post("/admin/login", {"username": "admin", "password": "test-admin-password"})
+        self.assertEqual(self.client.get("/admin/ejercicios").status_code, 200)
+        response = self.post("/admin/ejercicios", {
+            "title": "Ejercicio de prueba", "technology": "HTML", "level": "Inicial",
+            "description": "Un ejercicio creado desde el panel.",
+            "instructions": "Creá una etiqueta h2 para practicar.",
+            "starter_code": "<!-- empezá acá -->", "required_tokens": "<h2>||</h2>"
+        })
+        self.assertEqual(response.status_code, 200)
+        with site.get_db() as conn:
+            row = conn.execute("SELECT id FROM practice_exercises WHERE title=?", ("Ejercicio de prueba",)).fetchone()
+        self.assertIsNotNone(row)
+        self.assertEqual(self.post(f"/admin/ejercicios/{row['id']}/eliminar").status_code, 200)
+
 if __name__ == "__main__":
     unittest.main()
