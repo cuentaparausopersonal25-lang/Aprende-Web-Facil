@@ -16,7 +16,7 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
 - Retos semanales editables desde el panel administrador.
 - 10 herramientas de práctica para desarrollo web.
 - Proyectos guiados, comentarios y vitrina pública de proyectos de estudiantes.\n- Perfil editable de estudiante con presentación, tecnologías y portfolio.\n- Centro de notificaciones con base de datos preparado para avisos.\n- Tutor de programación opcional compatible con API de chat; se activa configurando una clave privada en Render.
-- Panel de administración para publicar el reto semanal, moderar comentarios y entregas, y consultar estadísticas de aprendizaje.
+- Biblioteca práctica ampliable con recursos, ejemplos y categorías.\n- Plan personal de estudio con metas, fechas y seguimiento.\n- Panel administrador para publicar y retirar recursos de la biblioteca.\n- Panel de administración para publicar el reto semanal, moderar comentarios y entregas, y consultar estadísticas de aprendizaje.
 - Pruebas automatizadas con GitHub Actions.
 
 ## Ejecutar localmente
