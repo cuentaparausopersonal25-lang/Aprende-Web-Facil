@@ -46,7 +46,7 @@ class AcademySmokeTests(unittest.TestCase):
 
     def test_public_pages_render(self):
         for path in ("/", "/aprender-programar", "/curso/html", "/laboratorio",
-                     "/herramientas", "/proyectos", "/retos", "/ranking"):
+                     "/herramientas", "/proyectos", "/retos", "/ranking", "/comunidad/proyectos"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
@@ -88,6 +88,32 @@ class AcademySmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.get("/admin").status_code, 200)
 
+
+    def test_profile_community_and_tutor_sections(self):
+        self.register_student()
+        self.assertEqual(self.client.get("/mi-perfil").status_code, 200)
+        response = self.post("/mi-perfil", {
+            "display_name": "Estudiante Demo",
+            "bio": "Estoy aprendiendo desarrollo web y creando proyectos.",
+            "favorite_stack": "HTML, CSS y Python",
+            "website": "https://example.com"
+        })
+        self.assertEqual(response.status_code, 200)
+        response = self.post("/comunidad/proyectos", {
+            "title": "Mi primera web",
+            "description": "Una página de práctica que hice para aprender HTML y CSS.",
+            "technologies": "HTML, CSS",
+            "project_url": "https://example.com"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get("/tutor").status_code, 200)
+        response = self.post("/tutor", {"question": "¿Qué es una variable en Python?"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get("/notificaciones").status_code, 200)
+        with site.get_db() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM project_posts").fetchone()[0], 1)
+            profile = conn.execute("SELECT display_name FROM user_profiles").fetchone()
+            self.assertEqual(profile["display_name"], "Estudiante Demo")
 
 if __name__ == "__main__":
     unittest.main()
