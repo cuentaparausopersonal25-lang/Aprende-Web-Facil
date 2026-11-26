@@ -20,3 +20,26 @@
 .tutor-answer{min-width:0}
 .profile-layout>.panel,.community-project-layout>.panel,.tutor-layout>.panel{min-width:0}
 @media(max-width:760px){.profile-layout,.community-project-layout,.tutor-layout{grid-template-columns:1fr}.profile-layout{gap:14px}}
+
+
+/* XXL: biblioteca, objetivos y gestión de recursos */
+.resource-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:18px;margin-top:24px}
+.resource-card,.goal-card{background:var(--panel,#151d2b);border:1px solid var(--line,#29364b);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.resource-card h3,.goal-card h3{margin:0}
+.resource-meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted,#9ba9bd);font-size:.82rem}
+.resource-card p,.goal-card p{color:var(--muted,#aab6c8);line-height:1.65}
+.resource-card .btn{align-self:flex-start;margin-top:auto}
+.resource-code{white-space:pre-wrap;overflow:auto;background:#080d17;border:1px solid #26344a;border-radius:14px;padding:20px;color:#c9e7ff;font: .9rem/1.65 ui-monospace,monospace}
+.resource-content{white-space:pre-wrap;line-height:1.85;color:#d3dced}
+.resource-filter{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}
+.resource-filter a{padding:8px 13px;border:1px solid var(--line,#29364b);border-radius:999px;color:inherit;text-decoration:none}
+.resource-filter a.active{background:#173c58;border-color:#43b5ee}
+.goal-form,.resource-form{display:grid;gap:12px;max-width:760px}
+.goal-form input,.resource-form input,.resource-form textarea,.resource-form select{width:100%;padding:12px 14px;border:1px solid #33445d;border-radius:12px;background:#0d1421;color:#f4f7fb}
+.goal-list{display:grid;gap:12px;margin-top:20px}
+.goal-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.goal-done{opacity:.62}
+.goal-done h3{text-decoration:line-through}
+.admin-resource-list{display:grid;gap:10px;margin-top:24px}
+.admin-resource-row{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:14px;border:1px solid var(--line,#29364b);border-radius:12px}
+@media(max-width:650px){.admin-resource-row{align-items:flex-start;flex-direction:column}}
