@@ -268,6 +268,31 @@ def init_db():
           study_date TEXT NOT NULL,
           UNIQUE(user_id, study_date)
         );
+        CREATE TABLE IF NOT EXISTS user_profiles (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          display_name TEXT NOT NULL DEFAULT '',
+          bio TEXT NOT NULL DEFAULT '',
+          website TEXT NOT NULL DEFAULT '',
+          favorite_stack TEXT NOT NULL DEFAULT '',
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS project_posts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          technologies TEXT NOT NULL,
+          project_url TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL,
+          read_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         """)
 
 
@@ -696,6 +721,104 @@ def delete_comment(comment_id):
 def admin_logout():
     session.clear()
     return redirect(url_for("home"))
+
+
+@app.route("/mi-perfil", methods=["GET", "POST"])
+@login_required
+def profile():
+    user = current_user()
+    if request.method == "POST":
+        display_name = request.form.get("display_name", "").strip()[:40]
+        bio = request.form.get("bio", "").strip()[:240]
+        website = request.form.get("website", "").strip()[:200]
+        stack = request.form.get("favorite_stack", "").strip()[:80]
+        if website and not (website.startswith("https://") or website.startswith("http://")):
+            flash("El enlace debe comenzar con https:// o http://.", "error")
+        else:
+            with get_db() as conn:
+                conn.execute("""INSERT INTO user_profiles (user_id, display_name, bio, website, favorite_stack)
+                    VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
+                    display_name=excluded.display_name, bio=excluded.bio, website=excluded.website,
+                    favorite_stack=excluded.favorite_stack, updated_at=CURRENT_TIMESTAMP""",
+                    (user["id"], display_name, bio, website, stack))
+            flash("Tu perfil quedó actualizado.", "success")
+            return redirect(url_for("profile"))
+    with get_db() as conn:
+        profile_row = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (user["id"],)).fetchone()
+        posts = conn.execute("SELECT * FROM project_posts WHERE user_id = ? ORDER BY id DESC LIMIT 10", (user["id"],)).fetchall()
+        unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL", (user["id"],)).fetchone()[0]
+    return render_template("profile.html", user=user, profile=profile_row, posts=posts, unread=unread)
+
+@app.route("/comunidad/proyectos", methods=["GET", "POST"])
+def community_projects():
+    if request.method == "POST":
+        if not session.get("user_id"):
+            flash("Iniciá sesión para publicar tu proyecto.", "info")
+            return redirect(url_for("login"))
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        technologies = request.form.get("technologies", "").strip()
+        project_url = request.form.get("project_url", "").strip()
+        if not (3 <= len(title) <= 70 and 20 <= len(description) <= 500 and 2 <= len(technologies) <= 100):
+            flash("Revisá el título, la descripción y las tecnologías.", "error")
+        elif project_url and not (project_url.startswith("https://") or project_url.startswith("http://")):
+            flash("El enlace debe comenzar con https:// o http://.", "error")
+        else:
+            with get_db() as conn:
+                conn.execute("INSERT INTO project_posts (user_id, title, description, technologies, project_url) VALUES (?, ?, ?, ?, ?)",
+                             (session["user_id"], title, description, technologies, project_url))
+                mark_study_day(conn, session["user_id"])
+            flash("¡Tu proyecto se publicó en la comunidad!", "success")
+            return redirect(url_for("community_projects"))
+    with get_db() as conn:
+        posts = conn.execute("""SELECT p.*, u.username,
+            COALESCE(NULLIF(pr.display_name, ''), u.username) AS author_name
+            FROM project_posts p JOIN users u ON u.id=p.user_id
+            LEFT JOIN user_profiles pr ON pr.user_id=u.id
+            ORDER BY p.id DESC LIMIT 60""").fetchall()
+    return render_template("community_projects.html", posts=posts)
+
+@app.route("/tutor", methods=["GET", "POST"])
+@login_required
+def tutor():
+    answer = None
+    question = ""
+    if request.method == "POST":
+        question = request.form.get("question", "").strip()
+        if len(question) < 5 or len(question) > 1200:
+            flash("Escribí una pregunta de entre 5 y 1200 caracteres.", "error")
+        else:
+            api_key = os.environ.get("AI_API_KEY", "").strip()
+            if not api_key:
+                flash("El tutor está preparado, pero falta configurar AI_API_KEY en Render para activarlo.", "info")
+            else:
+                import json
+                import urllib.request
+                endpoint = os.environ.get("AI_API_URL", "https://api.openai.com/v1/chat/completions")
+                model = os.environ.get("AI_MODEL", "gpt-4o-mini")
+                payload = {"model": model, "messages": [
+                    {"role": "system", "content": "Sos un tutor paciente de programación en español. Enseñá paso a paso con ejemplos pequeños. Nunca solicites contraseñas, tokens ni datos personales."},
+                    {"role": "user", "content": question}
+                ], "temperature": 0.4}
+                req = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"),
+                    headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}, method="POST")
+                try:
+                    with urllib.request.urlopen(req, timeout=35) as response:
+                        data = json.loads(response.read().decode("utf-8"))
+                    answer = data["choices"][0]["message"]["content"]
+                except Exception:
+                    flash("No se pudo conectar con el tutor. Revisá la configuración de IA en Render.", "error")
+    return render_template("tutor.html", answer=answer, question=question)
+
+@app.route("/notificaciones")
+@login_required
+def notifications():
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 40",
+                            (session["user_id"],)).fetchall()
+        conn.execute("UPDATE notifications SET read_at=CURRENT_TIMESTAMP WHERE user_id = ? AND read_at IS NULL",
+                     (session["user_id"],))
+    return render_template("notifications.html", notifications=rows)
 
 @app.errorhandler(404)
 def not_found(error):
