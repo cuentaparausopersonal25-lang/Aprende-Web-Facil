@@ -13,8 +13,8 @@
 <a class="brand" href="{{ url_for('home') }}"><span class="brand-icon">A<span>.</span></span><span>APRENDE <b>WEB FÁCIL</b><small>ACADEMIA DE PROGRAMACIÓN</small></span></a>
 <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
 <nav id="mainNav">
-<a href="{{ url_for('learn_programming') }}">Aprender</a><a href="{{ url_for('home') }}#cursos">Cursos</a><a href="{{ url_for('laboratory') }}">Laboratorio</a><a href="{{ url_for('projects') }}">Proyectos</a><a href="{{ url_for('challenges') }}">Retos</a><a href="{{ url_for('tools_page') }}">Herramientas</a>
-{% if current_user %}<a class="nav-pill" href="{{ url_for('dashboard') }}">Mi aprendizaje</a><a href="{{ url_for('logout') }}">Salir</a>{% else %}<a href="{{ url_for('login') }}">Ingresar</a><a class="nav-pill" href="{{ url_for('register') }}">Crear cuenta</a>{% endif %}
+<a href="{{ url_for('learn_programming') }}">Aprender</a><a href="{{ url_for('home') }}#cursos">Cursos</a><a href="{{ url_for('laboratory') }}">Laboratorio</a><a href="{{ url_for('projects') }}">Proyectos</a><a href="{{ url_for('challenges') }}">Retos</a><a href="{{ url_for('tools_page') }}">Herramientas</a><a href="{{ url_for('community_projects') }}">Comunidad</a><a href="{{ url_for('tutor') }}">Tutor IA</a>
+{% if current_user %}<a class="nav-pill" href="{{ url_for('dashboard') }}">Mi aprendizaje</a><a href="{{ url_for('profile') }}">Mi perfil</a><a href="{{ url_for('notifications') }}">Avisos</a><a href="{{ url_for('logout') }}">Salir</a>{% else %}<a href="{{ url_for('login') }}">Ingresar</a><a class="nav-pill" href="{{ url_for('register') }}">Crear cuenta</a>{% endif %}
 </nav></div></header>
 <main>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="wrap flash-stack">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
