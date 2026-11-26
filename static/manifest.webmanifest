@@ -1,0 +1,29 @@
+{
+  "id": "/",
+  "name": "Aprende Web Fácil",
+  "short_name": "Aprende Web",
+  "description": "Aprendé programación desde cero con cursos, prácticas y proyectos.",
+  "lang": "es-AR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#080d18",
+  "theme_color": "#080d18",
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/static/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
