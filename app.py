@@ -810,12 +810,13 @@ def tutor():
         else:
             api_key = os.environ.get("AI_API_KEY", "").strip()
             if not api_key:
-                flash("El tutor está preparado, pero falta configurar AI_API_KEY en Render para activarlo.", "info")
+                flash("Falta configurar AI_API_KEY en las variables de entorno de Render. Agregá una clave válida de tu proveedor de IA y volvé a desplegar.", "error")
             else:
                 import json
                 import urllib.request
-                endpoint = os.environ.get("AI_API_URL", "https://api.openai.com/v1/chat/completions")
-                model = os.environ.get("AI_MODEL", "gpt-4o-mini")
+                import urllib.error
+                endpoint = os.environ.get("AI_API_URL", "https://api.openai.com/v1/chat/completions").strip()
+                model = os.environ.get("AI_MODEL", "gpt-4o-mini").strip()
                 payload = {"model": model, "messages": [
                     {"role": "system", "content": "Sos un tutor paciente de programación en español. Enseñá paso a paso con ejemplos pequeños. Nunca solicites contraseñas, tokens ni datos personales."},
                     {"role": "user", "content": question}
@@ -826,8 +827,28 @@ def tutor():
                     with urllib.request.urlopen(req, timeout=35) as response:
                         data = json.loads(response.read().decode("utf-8"))
                     answer = data["choices"][0]["message"]["content"]
-                except Exception:
-                    flash("No se pudo conectar con el tutor. Revisá la configuración de IA en Render.", "error")
+                    if not answer:
+                        raise ValueError("El proveedor devolvió una respuesta vacía.")
+                except urllib.error.HTTPError as exc:
+                    detail = exc.read().decode("utf-8", errors="replace")[:1200]
+                    app.logger.error("Error HTTP del proveedor de IA (%s): %s", exc.code, detail)
+                    if exc.code in (401, 403):
+                        flash("La clave AI_API_KEY fue rechazada por el proveedor. Revisá que sea válida y que pertenezca al servicio configurado.", "error")
+                    elif exc.code == 404:
+                        flash("No se encontró el modelo o la dirección de IA. Revisá AI_API_URL y AI_MODEL en Render.", "error")
+                    elif exc.code == 429:
+                        flash("El proveedor de IA rechazó la consulta por límite de uso o falta de crédito. Revisá tu cuenta del proveedor.", "error")
+                    else:
+                        flash("El proveedor de IA respondió con un error HTTP " + str(exc.code) + ". Revisá los registros de Render.", "error")
+                except urllib.error.URLError as exc:
+                    app.logger.error("No se pudo conectar con el proveedor de IA: %s", exc.reason)
+                    flash("No se pudo alcanzar el servicio de IA. Revisá AI_API_URL y la conexión del proveedor en Render.", "error")
+                except (KeyError, IndexError, TypeError, ValueError) as exc:
+                    app.logger.exception("Respuesta inesperada del proveedor de IA: %s", exc)
+                    flash("El proveedor de IA respondió en un formato inesperado. Revisá AI_MODEL y los registros de Render.", "error")
+                except Exception as exc:
+                    app.logger.exception("Fallo inesperado del tutor IA: %s", exc)
+                    flash("El tutor tuvo un error inesperado. Abrí los registros de Render para ver el detalle técnico.", "error")
     return render_template("tutor.html", answer=answer, question=question)
 
 @app.route("/notificaciones")
