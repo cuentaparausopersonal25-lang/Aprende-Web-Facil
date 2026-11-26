@@ -19,6 +19,8 @@ class AcademySmokeTests(unittest.TestCase):
             os.remove(self.db_path)
         site.DATABASE = self.db_path
         site.init_db()
+        site.init_xxl_tables()
+        site.init_legendary_tables()
         site.app.config.update(TESTING=True, SECRET_KEY="test-secret-key-only")
         self.client = site.app.test_client()
         self.token = "csrf-test-token"
