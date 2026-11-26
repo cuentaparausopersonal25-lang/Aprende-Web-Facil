@@ -833,6 +833,143 @@ def notifications():
                      (session["user_id"],))
     return render_template("notifications.html", notifications=rows)
 
+
+# ── EXPANSIÓN XXL: biblioteca práctica y plan personal ─────────────────────
+def init_xxl_tables():
+    with get_db() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS learning_resources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          category TEXT NOT NULL,
+          level TEXT NOT NULL DEFAULT 'Inicial',
+          summary TEXT NOT NULL,
+          content TEXT NOT NULL,
+          code TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS resource_progress (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          resource_id INTEGER NOT NULL REFERENCES learning_resources(id) ON DELETE CASCADE,
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, resource_id)
+        );
+        CREATE TABLE IF NOT EXISTS study_goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          target_date TEXT NOT NULL DEFAULT '',
+          done INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        count = conn.execute("SELECT COUNT(*) FROM learning_resources").fetchone()[0]
+        if count == 0:
+            seeds = [
+              ("Tu primera página HTML","HTML","Principiante","Construí una página semántica desde cero.","Creá un documento con título, encabezado, contenido principal, una sección y un pie. Probalo en el navegador y verificá que tenga lang='es' y meta charset.","<!doctype html>\n<html lang='es'>\n<head><meta charset='utf-8'><title>Mi primera web</title></head>\n<body>\n  <header><h1>Mi primera web</h1></header>\n  <main><p>Estoy aprendiendo.</p></main>\n  <footer>Hecho por mí</footer>\n</body>\n</html>"),
+              ("Tarjeta de perfil con CSS","CSS","Principiante","Diseñá una tarjeta adaptable con Flexbox.","Usá una clase principal, padding, bordes redondeados, sombra suave y un ancho máximo. En pantallas pequeñas, ocupá casi todo el ancho disponible.",".tarjeta {\n  max-width: 420px;\n  margin: 2rem auto;\n  padding: 1.5rem;\n  border-radius: 18px;\n  background: #171d2b;\n  color: white;\n  display: flex;\n  flex-direction: column;\n  gap: 1rem;\n}"),
+              ("Contador interactivo","JavaScript","Inicial","Conectá un botón con una variable y el DOM.","Mostrá un número en pantalla. Al presionar sumar, incrementalo; al presionar reiniciar, volvé a cero. Usá textContent para actualizar el valor.","let contador = 0;\nconst salida = document.querySelector('#valor');\ndocument.querySelector('#sumar').addEventListener('click', () => {\n  contador++;\n  salida.textContent = contador;\n});"),
+              ("Formulario seguro en Flask","Python / Flask","Intermedio","Recibí y validá datos desde un formulario.","Validá los campos en el servidor, limitá la longitud y nunca concatenes datos del usuario en consultas SQL. Para contraseñas, usá funciones de hashing.","from flask import Flask, request, render_template\napp = Flask(__name__)\n\n@app.post('/contacto')\ndef contacto():\n    nombre = request.form.get('nombre', '').strip()[:60]\n    if not nombre:\n        return 'Falta el nombre', 400\n    return '¡Gracias, ' + nombre + '!'"),
+              ("API y JSON","Backend","Intermedio","Entendé cómo una aplicación intercambia datos.","Una API expone endpoints. JSON representa datos estructurados. Revisá el código HTTP y manejá errores de red antes de usar la respuesta.","fetch('/api/ejemplo')\n  .then(respuesta => {\n    if (!respuesta.ok) throw new Error('Error HTTP');\n    return respuesta.json();\n  })\n  .then(datos => console.log(datos))\n  .catch(error => console.error(error));"),
+              ("Publicá tu proyecto en GitHub","Herramientas","Inicial","Prepará un repositorio claro y compartible.","Incluí README, instrucciones de instalación y capturas propias. Nunca subas .env, contraseñas, tokens ni bases de datos con información privada.","git init\ngit add .\ngit commit -m \"Primer proyecto\"\ngit branch -M main\ngit remote add origin URL_DEL_REPO\ngit push -u origin main")
+            ]
+            conn.executemany("INSERT INTO learning_resources(title,category,level,summary,content,code) VALUES(?,?,?,?,?,?)", seeds)
+
+@app.route("/biblioteca")
+def resource_library():
+    category = request.args.get("categoria", "").strip()[:40]
+    with get_db() as conn:
+        if category:
+            resources = conn.execute("SELECT * FROM learning_resources WHERE category=? ORDER BY id DESC", (category,)).fetchall()
+        else:
+            resources = conn.execute("SELECT * FROM learning_resources ORDER BY id DESC").fetchall()
+        categories = conn.execute("SELECT DISTINCT category FROM learning_resources ORDER BY category").fetchall()
+        done = set()
+        if session.get("user_id"):
+            done = {r["resource_id"] for r in conn.execute("SELECT resource_id FROM resource_progress WHERE user_id=?", (session["user_id"],)).fetchall()}
+    return render_template("resource_library.html", resources=resources, categories=categories, selected=category, done=done)
+
+@app.route("/biblioteca/<int:resource_id>", methods=["GET", "POST"])
+def resource_detail(resource_id):
+    with get_db() as conn:
+        resource = conn.execute("SELECT * FROM learning_resources WHERE id=?", (resource_id,)).fetchone()
+        if not resource:
+            abort(404)
+        completed = False
+        if session.get("user_id"):
+            completed = conn.execute("SELECT 1 FROM resource_progress WHERE user_id=? AND resource_id=?", (session["user_id"], resource_id)).fetchone() is not None
+        if request.method == "POST":
+            if not session.get("user_id"):
+                flash("Iniciá sesión para guardar tu avance.", "info")
+                return redirect(url_for("login"))
+            conn.execute("INSERT OR IGNORE INTO resource_progress(user_id,resource_id) VALUES(?,?)", (session["user_id"], resource_id))
+            flash("¡Recurso completado! Tu avance quedó guardado.", "success")
+            return redirect(url_for("resource_detail", resource_id=resource_id))
+    return render_template("resource_detail.html", resource=resource, completed=completed)
+
+@app.route("/mi-plan", methods=["GET", "POST"])
+@login_required
+def study_plan():
+    uid = session["user_id"]
+    with get_db() as conn:
+        if request.method == "POST":
+            title = request.form.get("title", "").strip()[:100]
+            target_date = request.form.get("target_date", "").strip()[:10]
+            if len(title) < 3:
+                flash("La meta debe tener al menos 3 caracteres.", "error")
+            else:
+                conn.execute("INSERT INTO study_goals(user_id,title,target_date) VALUES(?,?,?)", (uid,title,target_date))
+                flash("Meta agregada a tu plan.", "success")
+            return redirect(url_for("study_plan"))
+        goals = conn.execute("SELECT * FROM study_goals WHERE user_id=? ORDER BY done, id DESC", (uid,)).fetchall()
+        stats = conn.execute("SELECT COUNT(*) total, SUM(done) done FROM study_goals WHERE user_id=?", (uid,)).fetchone()
+        resource_done = conn.execute("SELECT COUNT(*) FROM resource_progress WHERE user_id=?", (uid,)).fetchone()[0]
+    return render_template("study_plan.html", goals=goals, stats=stats, resource_done=resource_done)
+
+@app.post("/mi-plan/<int:goal_id>/estado")
+@login_required
+def toggle_study_goal(goal_id):
+    with get_db() as conn:
+        conn.execute("UPDATE study_goals SET done=CASE WHEN done=0 THEN 1 ELSE 0 END WHERE id=? AND user_id=?", (goal_id,session["user_id"]))
+    return redirect(url_for("study_plan"))
+
+@app.post("/mi-plan/<int:goal_id>/eliminar")
+@login_required
+def delete_study_goal(goal_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM study_goals WHERE id=? AND user_id=?", (goal_id,session["user_id"]))
+    flash("Meta eliminada.", "info")
+    return redirect(url_for("study_plan"))
+
+@app.route("/admin/biblioteca", methods=["GET", "POST"])
+@admin_required
+def admin_library():
+    with get_db() as conn:
+        if request.method == "POST":
+            title = request.form.get("title", "").strip()[:100]
+            category = request.form.get("category", "").strip()[:40]
+            level = request.form.get("level", "Inicial").strip()[:30]
+            summary = request.form.get("summary", "").strip()[:240]
+            content = request.form.get("content", "").strip()[:5000]
+            code = request.form.get("code", "").strip()[:8000]
+            if len(title) < 3 or len(category) < 2 or len(content) < 10:
+                flash("Completá título, categoría y contenido.", "error")
+            else:
+                conn.execute("INSERT INTO learning_resources(title,category,level,summary,content,code) VALUES(?,?,?,?,?,?)", (title,category,level,summary,content,code))
+                flash("Recurso publicado en la biblioteca.", "success")
+            return redirect(url_for("admin_library"))
+        resources = conn.execute("SELECT * FROM learning_resources ORDER BY id DESC").fetchall()
+    return render_template("admin_library.html", resources=resources)
+
+@app.post("/admin/biblioteca/<int:resource_id>/eliminar")
+@admin_required
+def admin_delete_resource(resource_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM learning_resources WHERE id=?", (resource_id,))
+    flash("Recurso eliminado.", "info")
+    return redirect(url_for("admin_library"))
+
 @app.errorhandler(404)
 def not_found(error):
     return render_template("404.html"), 404
@@ -842,6 +979,7 @@ def bad_request(error):
     return render_template("error.html", code=400, message=getattr(error, "description", "Solicitud no válida.")), 400
 
 init_db()
+init_xxl_tables()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
