@@ -14,7 +14,9 @@ import app as site
 
 class AcademySmokeTests(unittest.TestCase):
     def setUp(self):
-        self.db_path = os.path.join(_TEST_DIR, "case.db")
+        self.db_path = os.path.join(_TEST_DIR, self._testMethodName + ".db")
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
         site.DATABASE = self.db_path
         site.init_db()
         site.app.config.update(TESTING=True, SECRET_KEY="test-secret-key-only")
