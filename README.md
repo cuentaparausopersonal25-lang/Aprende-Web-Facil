@@ -15,7 +15,7 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
 - Laboratorio de HTML, CSS y JavaScript con vista previa aislada.
 - Retos semanales editables desde el panel administrador.
 - 10 herramientas de práctica para desarrollo web.
-- Proyectos guiados y comunidad con comentarios.
+- Proyectos guiados, comentarios y vitrina pública de proyectos de estudiantes.\n- Perfil editable de estudiante con presentación, tecnologías y portfolio.\n- Centro de notificaciones con base de datos preparado para avisos.\n- Tutor de programación opcional compatible con API de chat; se activa configurando una clave privada en Render.
 - Panel de administración para publicar el reto semanal, moderar comentarios y entregas, y consultar estadísticas de aprendizaje.
 - Pruebas automatizadas con GitHub Actions.
 
@@ -40,7 +40,7 @@ Ejecutá `python -m unittest discover -s tests -v`. GitHub Actions también corr
 - ADMIN_USER: usuario del panel de administración (el archivo render.yaml propone admin).
 - ADMIN_PASSWORD: contraseña privada del panel. Configurala en Environment en Render; no la subas a GitHub.
 - DATABASE_PATH (opcional): ruta del archivo SQLite.
-- COOKIE_SECURE: dejala en true en producción HTTPS.
+- COOKIE_SECURE: dejala en true en producción HTTPS.\n- AI_API_KEY: clave privada del proveedor de IA; no la subas a GitHub.\n- AI_API_URL (opcional): endpoint compatible con Chat Completions.\n- AI_MODEL (opcional): modelo habilitado en tu proveedor; por defecto gpt-4o-mini.
 
 ## Rutas principales
 - / inicio
@@ -50,7 +50,7 @@ Ejecutá `python -m unittest discover -s tests -v`. GitHub Actions también corr
 - /ingresar iniciar sesión
 - /mi-aprendizaje panel del estudiante
 - /laboratorio editor de práctica
-- /proyectos proyectos
+- /proyectos proyectos guiados\n- /comunidad/proyectos vitrina pública de proyectos\n- /mi-perfil perfil del estudiante\n- /tutor tutor de IA (requiere AI_API_KEY)\n- /notificaciones bandeja de avisos
 - /retos desafío comunitario
 - /ranking tabla de experiencia
 - /admin/login acceso administrador
