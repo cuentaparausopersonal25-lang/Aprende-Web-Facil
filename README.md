@@ -17,7 +17,7 @@ Academia de programación en español construida con Flask, SQLite, Jinja, HTML,
 - 10 herramientas de práctica para desarrollo web.
 - Proyectos guiados, comentarios y vitrina pública de proyectos de estudiantes.\n- Perfil editable de estudiante con presentación, tecnologías y portfolio.\n- Centro de notificaciones con base de datos preparado para avisos.\n- Tutor de programación opcional compatible con API de chat; se activa configurando una clave privada en Render.
 - Biblioteca práctica ampliable con recursos, ejemplos y categorías.\n- Plan personal de estudio con metas, fechas y seguimiento.\n- Panel administrador para publicar y retirar recursos de la biblioteca.\n- Panel de administración para publicar el reto semanal, moderar comentarios y entregas, y consultar estadísticas de aprendizaje.
-- Pruebas automatizadas con GitHub Actions.
+- Academia avanzada con panel de actividad personal.\n- Centro de práctica con ejercicios de HTML, CSS, JavaScript, Python, SQL y Flask.\n- Revisión automática por criterios de contenido (no ejecuta código del estudiante en el servidor).\n- Historial de intentos y ejercicios superados por usuario.\n- Colección privada de fragmentos de código con guardado y eliminación.\n- Panel administrador para publicar y retirar ejercicios.\n- Pruebas automatizadas con GitHub Actions.
 
 ## Ejecutar localmente
 1. Instalá Python 3.11 o superior.
@@ -49,7 +49,7 @@ Ejecutá `python -m unittest discover -s tests -v`. GitHub Actions también corr
 - /registro crear cuenta
 - /ingresar iniciar sesión
 - /mi-aprendizaje panel del estudiante
-- /laboratorio editor de práctica
+- /academia centro de entrenamiento avanzado\n- /practica catálogo de ejercicios\n- /mis-fragmentos colección privada de código (requiere sesión)\n- /admin/ejercicios gestión de ejercicios (requiere administración)\n- /laboratorio editor de práctica
 - /proyectos proyectos guiados\n- /comunidad/proyectos vitrina pública de proyectos\n- /mi-perfil perfil del estudiante\n- /tutor tutor de IA (requiere AI_API_KEY)\n- /notificaciones bandeja de avisos
 - /retos desafío comunitario
 - /ranking tabla de experiencia
