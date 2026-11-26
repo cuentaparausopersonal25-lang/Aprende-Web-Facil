@@ -978,8 +978,188 @@ def not_found(error):
 def bad_request(error):
     return render_template("error.html", code=400, message=getattr(error, "description", "Solicitud no válida.")), 400
 
+
+
+# ── EXPANSIÓN LEGENDARIA · ETAPA 1: academia avanzada y práctica ─────────────
+def init_legendary_tables():
+    with get_db() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS practice_exercises (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          technology TEXT NOT NULL,
+          level TEXT NOT NULL DEFAULT 'Inicial',
+          description TEXT NOT NULL,
+          instructions TEXT NOT NULL,
+          starter_code TEXT NOT NULL DEFAULT '',
+          required_tokens TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS exercise_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          exercise_id INTEGER NOT NULL REFERENCES practice_exercises(id) ON DELETE CASCADE,
+          submitted_code TEXT NOT NULL,
+          passed INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS code_snippets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          language TEXT NOT NULL,
+          code TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        if conn.execute("SELECT COUNT(*) FROM practice_exercises").fetchone()[0] == 0:
+            exercises = [
+              ("Tu primer título HTML","HTML","Principiante","Creá un encabezado principal válido.","Escribí una etiqueta h1 con el texto Mi primera web.","<main>\n  <!-- Escribí tu título -->\n</main>","<h1>||Mi primera web||</h1>"),
+              ("Lista de tareas","HTML","Principiante","Construí una lista no ordenada con tres tareas.","Usá ul y al menos tres elementos li.","<ul>\n  <!-- Agregá tres tareas -->\n</ul>","<ul>||<li>||</li>"),
+              ("Tarjeta adaptable","CSS","Inicial","Dale estilo a una tarjeta con bordes redondeados.","Creá una clase .tarjeta que use padding y border-radius.","/* Escribí tu CSS */"," .tarjeta||padding:||border-radius:"),
+              ("Diseño con Flexbox","CSS","Inicial","Alineá elementos usando Flexbox.","La clase .contenedor debe usar display:flex y gap.",".contenedor {\n  /* Tus reglas */\n}","display: flex||gap:"),
+              ("Variable y salida","JavaScript","Principiante","Guardá un nombre y mostralo en consola.","Declarar una constante nombre y llamar console.log con ella.","// Tu solución","const nombre||console.log"),
+              ("Función sumar","JavaScript","Inicial","Creá una función que sume dos números.","Definí sumar con dos parámetros y devolvé su suma.","// Tu solución","function sumar(||return"),
+              ("Condicional Python","Python","Principiante","Comprobá si una edad es mayor o igual a 18.","Usá if edad >= 18 y mostrá un mensaje.","edad = 20\n# Tu solución","if edad >= 18:||print("),
+              ("Función Python","Python","Inicial","Creá una función que devuelva el doble.","Definí doble(numero) y devolvé numero * 2.","# Tu solución","def doble(numero):||return numero * 2"),
+              ("Consulta SQL","SQL","Inicial","Consultá todos los registros de estudiantes.","Escribí SELECT * FROM estudiantes.","-- Tu consulta","SELECT * FROM estudiantes"),
+              ("Ruta Flask","Flask","Intermedio","Definí una ruta /hola en Flask.","Usá @app.route('/hola') y una función hola.","# Tu ruta","@app.route('/hola')||def hola():")
+            ]
+            conn.executemany("""INSERT INTO practice_exercises
+                (title,technology,level,description,instructions,starter_code,required_tokens)
+                VALUES(?,?,?,?,?,?,?)""", exercises)
+
+
+@app.route("/academia")
+def advanced_academy():
+    with get_db() as conn:
+        exercise_count = conn.execute("SELECT COUNT(*) FROM practice_exercises").fetchone()[0]
+        snippet_count = conn.execute("SELECT COUNT(*) FROM code_snippets WHERE user_id=?", (session.get("user_id") or -1,)).fetchone()[0]
+        attempts = conn.execute("SELECT COUNT(*) FROM exercise_attempts WHERE user_id=? AND passed=1", (session.get("user_id") or -1,)).fetchone()[0]
+        recent = conn.execute("""SELECT e.title,e.technology,a.passed,a.created_at
+            FROM exercise_attempts a JOIN practice_exercises e ON e.id=a.exercise_id
+            WHERE a.user_id=? ORDER BY a.id DESC LIMIT 5""", (session.get("user_id") or -1,)).fetchall()
+    return render_template("academy_hub.html", exercise_count=exercise_count,
+                           snippet_count=snippet_count, passed_count=attempts, recent=recent)
+
+
+@app.route("/practica")
+def practice_catalog():
+    technology = request.args.get("tecnologia", "").strip()[:30]
+    search = request.args.get("q", "").strip()[:80]
+    query = "SELECT * FROM practice_exercises WHERE 1=1"
+    params = []
+    if technology:
+        query += " AND technology=?"
+        params.append(technology)
+    if search:
+        query += " AND (title LIKE ? OR description LIKE ? OR instructions LIKE ?)"
+        params.extend([f"%{search}%"] * 3)
+    query += " ORDER BY technology, id"
+    with get_db() as conn:
+        exercises = conn.execute(query, params).fetchall()
+        technologies = conn.execute("SELECT DISTINCT technology FROM practice_exercises ORDER BY technology").fetchall()
+        solved = set()
+        if session.get("user_id"):
+            solved = {r["exercise_id"] for r in conn.execute(
+                "SELECT DISTINCT exercise_id FROM exercise_attempts WHERE user_id=? AND passed=1",
+                (session["user_id"],)).fetchall()}
+    return render_template("practice.html", exercises=exercises, technologies=technologies,
+                           selected=technology, search=search, solved=solved)
+
+
+@app.route("/practica/<int:exercise_id>", methods=["GET", "POST"])
+@login_required
+def practice_exercise(exercise_id):
+    with get_db() as conn:
+        exercise = conn.execute("SELECT * FROM practice_exercises WHERE id=?", (exercise_id,)).fetchone()
+        if not exercise:
+            abort(404)
+        result = None
+        submitted = exercise["starter_code"]
+        if request.method == "POST":
+            submitted = request.form.get("code", "")[:12000]
+            required = [part.strip().lower() for part in exercise["required_tokens"].split("||") if part.strip()]
+            normalized = submitted.lower()
+            missing = [part for part in required if part not in normalized]
+            passed = not missing
+            conn.execute("""INSERT INTO exercise_attempts(user_id,exercise_id,submitted_code,passed)
+                VALUES(?,?,?,?)""", (session["user_id"], exercise_id, submitted, int(passed)))
+            result = {"passed": passed, "missing": missing}
+            if passed:
+                flash("¡Ejercicio superado! Tu intento quedó guardado.", "success")
+            else:
+                flash("Todavía falta algo. Revisá las pistas y probá otra vez.", "info")
+    return render_template("practice_detail.html", exercise=exercise, result=result, submitted=submitted)
+
+
+@app.route("/mis-fragmentos", methods=["GET", "POST"])
+@login_required
+def my_snippets():
+    uid = session["user_id"]
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()[:70]
+        language = request.form.get("language", "Texto").strip()[:30]
+        code = request.form.get("code", "").strip()[:12000]
+        if len(title) < 2 or len(code) < 1:
+            flash("Poné un título y agregá código antes de guardar.", "error")
+        else:
+            with get_db() as conn:
+                conn.execute("INSERT INTO code_snippets(user_id,title,language,code) VALUES(?,?,?,?)",
+                             (uid, title, language, code))
+            flash("Fragmento guardado en tu colección privada.", "success")
+        return redirect(url_for("my_snippets"))
+    with get_db() as conn:
+        snippets = conn.execute("SELECT * FROM code_snippets WHERE user_id=? ORDER BY id DESC", (uid,)).fetchall()
+    return render_template("snippets.html", snippets=snippets)
+
+
+@app.post("/mis-fragmentos/<int:snippet_id>/eliminar")
+@login_required
+def delete_snippet(snippet_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM code_snippets WHERE id=? AND user_id=?", (snippet_id, session["user_id"]))
+    flash("Fragmento eliminado de tu colección.", "info")
+    return redirect(url_for("my_snippets"))
+
+
+@app.route("/admin/ejercicios", methods=["GET", "POST"])
+@admin_required
+def admin_exercises():
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()[:100]
+        technology = request.form.get("technology", "").strip()[:30]
+        level = request.form.get("level", "Inicial").strip()[:30]
+        description = request.form.get("description", "").strip()[:240]
+        instructions = request.form.get("instructions", "").strip()[:1000]
+        starter = request.form.get("starter_code", "")[:5000]
+        required = request.form.get("required_tokens", "").strip()[:500]
+        if len(title) < 3 or len(technology) < 2 or len(instructions) < 10 or not required:
+            flash("Completá título, tecnología, instrucciones y criterios de corrección.", "error")
+        else:
+            with get_db() as conn:
+                conn.execute("""INSERT INTO practice_exercises
+                    (title,technology,level,description,instructions,starter_code,required_tokens)
+                    VALUES(?,?,?,?,?,?,?)""", (title,technology,level,description,instructions,starter,required))
+            flash("Nuevo ejercicio publicado.", "success")
+        return redirect(url_for("admin_exercises"))
+    with get_db() as conn:
+        exercises = conn.execute("SELECT * FROM practice_exercises ORDER BY id DESC").fetchall()
+    return render_template("admin_exercises.html", exercises=exercises)
+
+
+@app.post("/admin/ejercicios/<int:exercise_id>/eliminar")
+@admin_required
+def admin_delete_exercise(exercise_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM practice_exercises WHERE id=?", (exercise_id,))
+    flash("Ejercicio eliminado.", "info")
+    return redirect(url_for("admin_exercises"))
+
+
 init_db()
 init_xxl_tables()
+init_legendary_tables()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
