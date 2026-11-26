@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, send_from_directory
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import secrets
@@ -19,6 +19,13 @@ app.config.update(
     MAX_CONTENT_LENGTH=2 * 1024 * 1024,
 )
 DATABASE = os.environ.get("DATABASE_PATH", "aprende_web.db")
+
+@app.get("/sw.js")
+def service_worker_file():
+    response = send_from_directory("static", "sw.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 COURSES = [
     {"slug":"primeros-pasos","title":"Programación desde cero","level":"Principiante","duration":"2 horas","description":"Lógica, algoritmos, computadoras y primeros pasos para pensar como programador.","icon":"🧭","category":"Fundamentos","topics":["Qué significa programar","Algoritmos y pseudocódigo","Variables y tipos de datos","Condiciones y decisiones"]},
